@@ -305,16 +305,31 @@ async function doRegistro() {
   try {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     const rol  = email === ADMIN_EMAIL ? "admin" : "user";
-    await db.collection("usuarios").doc(cred.user.uid).set({
+    // Guardar perfil en Firestore
+    const perfil = {
       nombre: nom, celular: cel, email: email,
       rol: rol, creado: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    // Agregar datos de quien invitó si existe
+    if (invitacionData) {
+      perfil.invitadoPor = invitacionData.uid || '';
+      perfil.invitadoPorNombre = invitacionData.nombre || '';
+    }
+    await db.collection("usuarios").doc(cred.user.uid).set(perfil);
+    console.log("Perfil guardado en Firestore:", cred.user.uid);
+    // Marcar invitacion como usada
+    if (invitacionData && invitacionData.token && invitacionData.token !== 'pending') {
+      await marcarInvitacionUsada(invitacionData.token);
+    }
+    await guardarInvitacion(cred.user.uid);
     showAuthOk("✓ Cuenta creada. Bienvenido!");
   } catch(e) {
+    console.error("Error en registro:", e);
     const msgs = {
       "auth/email-already-in-use": "Este correo ya está registrado",
       "auth/invalid-email":        "Correo inválido",
-      "auth/weak-password":        "Contraseña muy débil"
+      "auth/weak-password":        "Contraseña muy débil",
+      "permission-denied":         "Error de permisos. Contacta al administrador."
     };
     showAuthErr(msgs[e.code] || e.message);
   }
