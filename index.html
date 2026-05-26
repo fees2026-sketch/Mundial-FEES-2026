@@ -9,6 +9,8 @@
 <title>Polla Mundialista 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- EmailJS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -28,6 +30,8 @@ if (!firebase.apps.length) {
 }
 const auth = firebase.auth();
 const db   = firebase.firestore();
+// Init EmailJS
+emailjs.init("KQqJGqKsLLVu_mp6m");
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -412,8 +416,50 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
     </div>
     <div id="admin-panel-usuarios">
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="toggleFormUsuario()">+ Crear usuario</button>
         <button class="btn btn-gold btn-sm" onclick="abrirCargueUsuarios()">&#11015; Cargue masivo</button>
       </div>
+
+      <!-- Formulario crear usuario individual -->
+      <div id="form-nuevo-usuario" style="display:none;" class="card" style="margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:14px;">Crear usuario individual</div>
+        <div class="frow c2">
+          <div>
+            <label>Nombre completo</label>
+            <input type="text" id="nu-nombre" placeholder="Nombre del usuario" style="margin-top:5px;"/>
+          </div>
+          <div>
+            <label>N&uacute;mero de celular</label>
+            <input type="tel" id="nu-celular" placeholder="3001234567" style="margin-top:5px;"/>
+          </div>
+        </div>
+        <div class="frow c2">
+          <div>
+            <label>Correo electr&oacute;nico</label>
+            <input type="email" id="nu-correo" placeholder="correo@ejemplo.com" style="margin-top:5px;"/>
+          </div>
+          <div>
+            <label>Modo</label>
+            <select id="nu-modo" onchange="toggleModoUsuario()" style="margin-top:5px;">
+              <option value="invitar">Enviar invitaci&oacute;n (el usuario se registra)</option>
+              <option value="crear">Crear cuenta directamente</option>
+            </select>
+          </div>
+        </div>
+        <div id="nu-wrap-pass" style="display:none;margin-bottom:12px;">
+          <label>Contrase&ntilde;a temporal</label>
+          <input type="text" id="nu-pass" value="Polla2026" style="margin-top:5px;width:200px;"/>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" style="width:auto;padding:10px 24px;" onclick="crearUsuarioIndividual()">
+            &#10003; Confirmar
+          </button>
+          <button class="btn btn-outline" style="width:auto;padding:10px 20px;" onclick="toggleFormUsuario()">
+            Cancelar
+          </button>
+        </div>
+      </div>
+
       <div id="lista-usuarios"></div>
       <div class="card" style="margin-top:14px;">
         <div class="card-title">&#128140; Links de invitaci&oacute;n</div>
@@ -522,23 +568,34 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
       <button onclick="cerrarModalInvitar()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">&#10005;</button>
     </div>
 
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Tu familiar se registrar&aacute; con tu link personal y quedar&aacute; vinculado a ti.</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Genera un link &uacute;nico por persona. Solo funciona una vez.</p>
 
+    <div style="margin-bottom:12px;">
+      <label>Nombre del invitado</label>
+      <input type="text" id="invitar-nombre" placeholder="Ej: Juan Pérez" style="margin-top:5px;"/>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label>Correo electr&oacute;nico <span style="color:var(--verde);font-size:11px;">(se env&iacute;a autom&aacute;ticamente)</span></label>
+      <input type="email" id="invitar-email" placeholder="correo@ejemplo.com" style="margin-top:5px;"/>
+    </div>
     <div style="margin-bottom:16px;">
-      <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Tu link de invitaci&oacute;n</label>
-      <div id="invitar-link-preview"></div>
-      <button class="btn btn-primary" style="width:auto;padding:10px 20px;" onclick="generarLinkInvitacion()">+ Generar y copiar link</button>
+      <label>O enviar por WhatsApp</label>
+      <input type="tel" id="invitar-tel" placeholder="Ej: 3001234567" style="margin-top:5px;"/>
     </div>
 
-    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px;">
-      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;">Enviar por WhatsApp</div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Se generar&aacute; un link &uacute;nico e intransferible para esta persona.</p>
-      <div style="margin-bottom:12px;">
-        <label>N&uacute;mero de celular del familiar</label>
-        <input type="tel" id="invitar-tel" placeholder="Ej: 3001234567" style="margin-top:5px;"/>
-      </div>
-      <button class="btn btn-primary" onclick="enviarInvitacionCorreo()" style="background:#25D366;width:100%;">
-        &#128242; Generar link y enviar por WhatsApp
+    <div id="invitar-link-preview"></div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="enviarInvitacionEmail()" style="flex:1;">
+        &#9993; Enviar por correo
+      </button>
+      <button class="btn btn-primary" onclick="enviarInvitacionWA()" style="flex:1;background:#25D366;">
+        &#128242; Enviar por WhatsApp
+      </button>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-outline btn-sm" onclick="soloGenerarLink()" style="width:100%;">
+        &#128203; Solo generar y copiar link
       </button>
     </div>
   </div>
