@@ -1,7 +1,7 @@
 // FIREBASE CONFIG - inicializado en el bloque de scripts del head
 
 // CONSTANTES
-const ADMIN_EMAIL = "fees2026@gmail.com"; 
+const ADMIN_EMAIL = "fees2026@gmail.com";
 const API_KEY_FOOTBALL = "8ccb25f8512b4cc51e437eae1b0edca7";
 
 const PARTIDOS = [
@@ -822,7 +822,7 @@ function enviarWhatsApp(celular, nombre) {
   const msg = encodeURIComponent(
     'Hola ' + nombre + ' \uD83D\uDC4B\n\n' +
     '\u00A1Te recordamos que a\u00FAn no has registrado tus apuestas en la Polla Mundialista 2026! \u26BD\uD83C\uDFC6\n\n' +
-    'Ingresa aqu\u00ED: https://lopetego-spec.github.io/Polla-Mundialista/\n\n' +
+    'Ingresa aqu\u00ED: https://fees2026-sketch.github.io/Mundial-FEES-2026/\n\n' +
     '\u00A1No te quedes por fuera!'
   );
   // Limpiar número: quitar espacios, guiones, +57, etc.
