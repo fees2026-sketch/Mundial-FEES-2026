@@ -267,7 +267,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
-    <button onclick="abrirModalInvitar()" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">
+    <button id="btn-invitar" onclick="abrirModalInvitar()" style="background:rgba(255,255,255,.15);border:none;color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">
       &#128140; Invitar
     </button>
     <div class="user-pill" onclick="doLogout()" title="Cerrar sesi&oacute;n">
@@ -279,11 +279,11 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
 
 <!-- NAV -->
 <nav id="main-nav" style="display:none;">
-  <button class="active" onclick="showTab('nueva',this)">&#128221; Nueva apuesta</button>
-  <button onclick="showTab('partidos',this)">&#9917; Partidos</button>
-  <button onclick="showTab('apuestas',this)">&#128203; Apuestas</button>
-  <button onclick="showTab('resultados',this)">&#127919; Resultados</button>
-  <button onclick="showTab('tabla',this)">&#127885; Tabla</button>
+  <button class="active" data-nav="nueva" onclick="showTab('nueva',this)"><span id="nav-nueva-txt">&#128221; Nueva apuesta</span></button>
+  <button data-nav="partidos" onclick="showTab('partidos',this)">&#9917; Partidos</button>
+  <button data-nav="apuestas" onclick="showTab('apuestas',this)">&#128203; Apuestas</button>
+  <button data-nav="resultados" onclick="showTab('resultados',this)">&#127919; Resultados</button>
+  <button data-nav="tabla" onclick="showTab('tabla',this)">&#127885; Tabla</button>
   <button id="nav-admin" onclick="showTab('admin',this)" style="display:none;">&#9881; Admin <span class="admin-badge">Admin</span></button>
 </nav>
 
@@ -293,7 +293,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
   <!-- NUEVA APUESTA -->
   <div class="panel active" id="tab-nueva">
     <div class="card">
-      <div class="card-title">Registrar nueva apuesta</div>
+      <div class="card-title" id="sec-nueva-titulo">Registrar nueva apuesta</div>
       <div class="frow c2">
         <div>
           <label>Tipo de apuesta</label>
@@ -339,10 +339,10 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
           <datalist id="lista-equipos"></datalist>
         </div></div>
       </div>
-      <button class="btn btn-primary" onclick="registrar()">&#10003; Registrar apuesta</button>
+      <button class="btn btn-primary" id="btn-registrar" onclick="registrar()">&#10003; Registrar apuesta</button>
     </div>
     <div class="pts-info">
-      <strong style="color:var(--oro);">Sistema de puntuaci&oacute;n:</strong>
+      <strong style="color:var(--oro);" id="pts-info-label">Sistema de puntuaci&oacute;n:</strong>
       <span id="pts-info-text">Cargando...</span>
     </div>
   </div>
@@ -350,7 +350,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
   <!-- PARTIDOS -->
   <div class="panel" id="tab-partidos">
     <div class="card" style="margin-bottom:16px;">
-      <div class="card-title" style="margin-bottom:8px;">Fixture &mdash; Fase de grupos</div>
+      <div class="card-title" id="sec-partidos-titulo" style="margin-bottom:8px;">Fixture &mdash; Fase de grupos</div>
       <div class="filters">
         <select id="fil-fecha" onchange="renderPartidos()"><option value="">Todas las fechas</option></select>
         <select id="fil-grupo-p" onchange="renderPartidos()"><option value="">Todos los grupos</option></select>
@@ -378,7 +378,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
     <div class="card" style="margin-bottom:12px;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div>
-          <div class="card-title" style="margin-bottom:4px;">Ingresar resultados reales</div>
+          <div class="card-title" id="sec-resultados-titulo" style="margin-bottom:4px;">Ingresar resultados reales</div>
           <p style="font-size:13px;color:var(--muted);">Al guardar se calculan los puntos autom&aacute;ticamente.</p>
         </div>
         <button class="btn btn-gold btn-sm" id="btn-sync" onclick="syncResultados()" style="white-space:nowrap;margin-top:4px;">&#128260; Sincronizar API</button>
@@ -391,13 +391,13 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
   <!-- TABLA -->
   <div class="panel" id="tab-tabla">
     <div class="stats-grid">
-      <div class="stat-box"><div class="stat-num" id="st-total">0</div><div class="stat-lbl">Apuestas</div></div>
-      <div class="stat-box"><div class="stat-num" id="st-partic">0</div><div class="stat-lbl">Participantes</div></div>
-      <div class="stat-box"><div class="stat-num" id="st-partidos">0</div><div class="stat-lbl">Partidos cubiertos</div></div>
+      <div class="stat-box"><div class="stat-num" id="st-total">0</div><div class="stat-lbl" id="stat-lbl-apuestas">Apuestas</div></div>
+      <div class="stat-box"><div class="stat-num" id="st-partic">0</div><div class="stat-lbl" id="stat-lbl-partic">Participantes</div></div>
+      <div class="stat-box"><div class="stat-num" id="st-partidos">0</div><div class="stat-lbl" id="stat-lbl-partidos">Partidos cubiertos</div></div>
     </div>
     <div class="card" style="padding:0;overflow:hidden;">
       <div style="padding:14px 16px 8px;display:flex;justify-content:space-between;align-items:center;">
-        <div class="card-title" style="margin:0;">Clasificaci&oacute;n</div>
+        <div class="card-title" id="sec-tabla-titulo" style="margin:0;">Clasificaci&oacute;n</div>
         <div style="font-size:11px;color:var(--muted);">Tiempo real</div>
       </div>
       <div id="tabla-ranking"></div>
@@ -409,9 +409,10 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
     <div class="card" style="margin-bottom:14px;padding-bottom:0;">
       <div class="card-title" style="margin-bottom:0;">Panel de administraci&oacute;n <span class="admin-badge">Admin</span></div>
       <div style="display:flex;margin-top:12px;border-top:1px solid var(--border);overflow-x:auto;">
-        <button id="asubt-usuarios" onclick="adminSubTab('usuarios')" style="flex:1;padding:11px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--verde);border-bottom:2px solid var(--verde);white-space:nowrap;">&#128101; Usuarios</button>
-        <button id="asubt-puntos" onclick="adminSubTab('puntos')" style="flex:1;padding:11px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#127942; Puntuaci&oacute;n</button>
-        <button id="asubt-config" onclick="adminSubTab('config')" style="flex:1;padding:11px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#9881;&#65039; Partidos</button>
+        <button id="asubt-usuarios" data-nav-admin="usuarios" onclick="adminSubTab('usuarios')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--verde);border-bottom:2px solid var(--verde);white-space:nowrap;">&#128101; Usuarios</button>
+        <button id="asubt-puntos" data-nav-admin="puntos" onclick="adminSubTab('puntos')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#127942; Puntuaci&oacute;n</button>
+        <button id="asubt-config" data-nav-admin="config" onclick="adminSubTab('config')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#9881;&#65039; Partidos</button>
+        <button id="asubt-textos" data-nav-admin="textos" onclick="adminSubTab('textos')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#9997;&#65039; Textos</button>
       </div>
     </div>
     <div id="admin-panel-usuarios">
@@ -487,6 +488,23 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
             <input type="checkbox" id="ocultar-apuestas" onchange="saveConfigGeneral()" style="width:16px;height:16px;"/>
             <span style="font-size:13px;font-weight:500;">Ocultar apuestas ajenas hasta que cierre la fase</span>
           </label>
+        </div>
+      </div>
+    </div>
+    <div id="admin-panel-textos" style="display:none;">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div class="card-title" style="margin:0;">&#9997;&#65039; Textos editables</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="resetTextos()">&#8634; Restaurar todo</button>
+            <button class="btn btn-primary btn-sm" onclick="guardarTextos()">&#10003; Guardar cambios</button>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Edita cualquier texto de la app. Los cambios se aplican en tiempo real y se guardan para todos los usuarios.</p>
+        <div id="textos-lista"></div>
+        <div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+          <button class="btn btn-outline btn-sm" onclick="resetTextos()">&#8634; Restaurar por defecto</button>
+          <button class="btn btn-primary" style="width:auto;padding:10px 20px;" onclick="guardarTextos()">&#10003; Guardar todos los cambios</button>
         </div>
       </div>
     </div>

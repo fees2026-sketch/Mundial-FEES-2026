@@ -608,7 +608,7 @@ async function cargarResultados() {
   const snap = await db.collection("resultados").get();
   snap.forEach(doc => { resultados[doc.id] = doc.data(); });
   await cargarConfigPartidos();
-  await cargarSlogan();
+  await cargarTextos(); // carga textos y slogan
   renderPartidos(); renderResultados();
 }
 
@@ -703,13 +703,15 @@ function eliminarCriterio(i) {
 
 // ADMIN USUARIOS
 function adminSubTab(tab) {
-  ["usuarios","puntos","config"].forEach(t => {
+  ["usuarios","puntos","config","textos"].forEach(t => {
     document.getElementById("admin-panel-"+t).style.display = tab===t?"block":"none";
-    const base = "flex:1;padding:11px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid ";
-    document.getElementById("asubt-"+t).style.cssText = base+(tab===t?"var(--verde);color:var(--verde);":"transparent;color:var(--muted);");
+    const base = "flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid ";
+    const el = document.getElementById("asubt-"+t);
+    if(el) el.style.cssText = base+(tab===t?"var(--verde);color:var(--verde);":"transparent;color:var(--muted);");
   });
   if(tab==="puntos")  renderCriterios();
   if(tab==="config")  { renderConfigPartidos(); initConfigFiltros(); loadCierreGlobalUI(); }
+  if(tab==="textos")  renderTextos();
   if(tab==="usuarios")renderUsuarios();
 }
 
@@ -1412,6 +1414,156 @@ async function crearUsuarioIndividual() {
 
   btn.disabled = false;
   btn.textContent = '\u2713 Confirmar';
+}
+
+
+// ============================================================
+// TEXTOS EDITABLES (admin)
+// ============================================================
+const TEXTOS_DEFAULT = {
+  // Header
+  app_titulo:       'Polla Mundialista FEES 2026',
+  app_subtitulo:    'Estados Unidos · México · Canadá · 11 Jun – 19 Jul',
+  app_slogan:       '¡Demuestra que sabes de fútbol!',
+  // Navegación
+  nav_nueva:        '📝 Nueva apuesta',
+  nav_partidos:     '⚽ Partidos',
+  nav_apuestas:     '📋 Apuestas',
+  nav_resultados:   '🎯 Resultados',
+  nav_tabla:        '🏅 Tabla',
+  nav_admin:        '⚙️ Admin',
+  // Secciones principales
+  sec_nueva_titulo: 'Registrar nueva apuesta',
+  sec_partidos_titulo: 'Fixture — Fase de grupos',
+  sec_resultados_titulo: 'Ingresar resultados reales',
+  sec_tabla_titulo: 'Clasificación',
+  // Tabla stats
+  stat_apuestas:    'Apuestas',
+  stat_participantes: 'Participantes',
+  stat_partidos:    'Partidos cubiertos',
+  // Botones clave
+  btn_registrar:    '✓ Registrar apuesta',
+  btn_sync:         '🔄 Sincronizar API',
+  btn_exportcsv:    '⬇ CSV',
+  btn_exportxlsx:   '⬇ Excel',
+  // Auth
+  auth_login_titulo:    'Ingresar',
+  auth_reg_titulo:      'Registrarse',
+  auth_btn_login:       'Ingresar →',
+  auth_btn_reg:         'Crear cuenta →',
+  // Puntuación info
+  pts_titulo:       'Sistema de puntuación:',
+  // Invitar
+  btn_invitar:      '💌 Invitar',
+};
+
+let textos = {...TEXTOS_DEFAULT};
+
+async function cargarTextos() {
+  try {
+    const snap = await db.collection('config').doc('textos').get();
+    if (snap.exists) {
+      textos = {...TEXTOS_DEFAULT, ...snap.data()};
+    }
+    aplicarTextos();
+  } catch(e) { console.error('Error cargando textos:', e); }
+}
+
+function aplicarTextos() {
+  const map = {
+    // Header
+    'hdr-titulo':        textos.app_titulo,
+    'hdr-subtitulo':     textos.app_subtitulo,
+    'header-slogan':     textos.app_slogan,
+    'auth-titulo':       textos.app_titulo,
+    'auth-slogan':       textos.app_slogan,
+    // Secciones
+    'sec-nueva-titulo':  textos.sec_nueva_titulo,
+    'sec-partidos-titulo': textos.sec_partidos_titulo,
+    'sec-resultados-titulo': textos.sec_resultados_titulo,
+    'sec-tabla-titulo':  textos.sec_tabla_titulo,
+    // Stats
+    'stat-lbl-apuestas': textos.stat_apuestas,
+    'stat-lbl-partic':   textos.stat_participantes,
+    'stat-lbl-partidos': textos.stat_partidos,
+    // Botones
+    'btn-registrar':     textos.btn_registrar,
+    'btn-sync':          textos.btn_sync,
+    'btn-invitar':       textos.btn_invitar,
+    // Auth
+    'tab-login-btn':     textos.auth_login_titulo,
+    'tab-reg-btn':       textos.auth_reg_titulo,
+    'btn-login':         textos.auth_btn_login,
+    'btn-reg':           textos.auth_btn_reg,
+    'pts-info-label':    textos.pts_titulo,
+  };
+  Object.entries(map).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val) el.textContent = val;
+  });
+  // Nav buttons (by data-nav attribute)
+  const navMap = {
+    'nueva': textos.nav_nueva,
+    'partidos': textos.nav_partidos,
+    'apuestas': textos.nav_apuestas,
+    'resultados': textos.nav_resultados,
+    'tabla': textos.nav_tabla,
+    'admin': textos.nav_admin,
+  };
+  document.querySelectorAll('nav button[data-nav]').forEach(btn => {
+    const key = btn.getAttribute('data-nav');
+    if (navMap[key]) btn.textContent = navMap[key];
+  });
+}
+
+async function guardarTextos() {
+  const campos = Object.keys(TEXTOS_DEFAULT);
+  campos.forEach(k => {
+    const el = document.getElementById('txt-' + k);
+    if (el) textos[k] = el.value || TEXTOS_DEFAULT[k];
+  });
+  await db.collection('config').doc('textos').set(textos);
+  aplicarTextos();
+  toast('✓ Textos guardados');
+}
+
+function resetTextos() {
+  if (!confirm('¿Restaurar todos los textos por defecto?')) return;
+  textos = {...TEXTOS_DEFAULT};
+  db.collection('config').doc('textos').set(textos);
+  aplicarTextos();
+  renderTextos();
+  toast('✓ Textos restaurados');
+}
+
+function renderTextos() {
+  const container = document.getElementById('textos-lista');
+  if (!container) return;
+
+  const grupos = [
+    { titulo: '🏷️ Header y título', keys: ['app_titulo','app_subtitulo','app_slogan'] },
+    { titulo: '🗂️ Navegación', keys: ['nav_nueva','nav_partidos','nav_apuestas','nav_resultados','nav_tabla','nav_admin'] },
+    { titulo: '📄 Títulos de secciones', keys: ['sec_nueva_titulo','sec_partidos_titulo','sec_resultados_titulo','sec_tabla_titulo'] },
+    { titulo: '📊 Estadísticas', keys: ['stat_apuestas','stat_participantes','stat_partidos'] },
+    { titulo: '🔘 Botones', keys: ['btn_registrar','btn_sync','btn_invitar','btn_exportcsv','btn_exportxlsx'] },
+    { titulo: '🔐 Autenticación', keys: ['auth_login_titulo','auth_reg_titulo','auth_btn_login','auth_btn_reg'] },
+  ];
+
+  container.innerHTML = grupos.map(g => `
+    <div style="margin-bottom:20px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--verde);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">${g.titulo}</div>
+      ${g.keys.map(k => `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;min-width:160px;flex-shrink:0;">${k.replace(/_/g,' ')}</label>
+          <input type="text" id="txt-${k}" value="${(textos[k]||'').replace(/"/g,'&quot;')}"
+            placeholder="${(TEXTOS_DEFAULT[k]||'').replace(/"/g,'&quot;')}"
+            style="flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:Inter,sans-serif;background:var(--bg);"
+            oninput="textos['${k}']=this.value;aplicarTextos();"/>
+          <button onclick="document.getElementById('txt-${k}').value=TEXTOS_DEFAULT['${k}'];textos['${k}']=TEXTOS_DEFAULT['${k}'];aplicarTextos();"
+            style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;color:var(--muted);flex-shrink:0;"
+            title="Restablecer">↩</button>
+        </div>`).join('')}
+    </div>`).join('');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
