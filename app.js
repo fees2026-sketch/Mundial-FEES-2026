@@ -3,7 +3,7 @@
 // CONSTANTES
 const ADMIN_EMAIL        = "fees2026@gmail.com";
 const API_KEY_FOOTBALL   = "8ccb25f8512b4cc51e437eae1b0edca7";
-const EMAILJS_SERVICE_ID = "service_I5i5rnn";
+const EMAILJS_SERVICE_ID = "service_l5i5rnn";
 const EMAILJS_TEMPLATE   = "template_cyfytje";
 
 const PARTIDOS = [
