@@ -764,8 +764,9 @@ async function renderUsuarios() {
     if (snap.empty) { container.innerHTML='<div class="empty"><div class="empty-ico">👥</div>No hay usuarios</div>'; return; }
     const users = snap.docs.map(d=>({uid:d.id,...d.data()}));
 
-    // Calcular quiénes no han apostado
-    const conApuestas = new Set(apuestas.map(a=>a.uid));
+    // Cargar TODAS las apuestas para calcular quiénes han apostado
+    const snapAp = await db.collection("apuestas").get();
+    const conApuestas = new Set(snapAp.docs.map(d=>d.data().uid));
 
     // Botón de recordatorio masivo
     const sinApostar = users.filter(u=>!conApuestas.has(u.uid));
