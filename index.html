@@ -433,22 +433,11 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
             <input type="tel" id="nu-celular" placeholder="3001234567" style="margin-top:5px;"/>
           </div>
         </div>
-        <div class="frow c2">
+        <div class="frow">
           <div>
-            <label>Correo electr&oacute;nico</label>
+            <label>Correo electr&oacute;nico <span style="color:var(--verde);font-size:11px;">(se env&iacute;a invitaci&oacute;n autom&aacute;ticamente)</span></label>
             <input type="email" id="nu-correo" placeholder="correo@ejemplo.com" style="margin-top:5px;"/>
           </div>
-          <div>
-            <label>Modo</label>
-            <select id="nu-modo" onchange="toggleModoUsuario()" style="margin-top:5px;">
-              <option value="invitar">Enviar invitaci&oacute;n (el usuario se registra)</option>
-              <option value="crear">Crear cuenta directamente</option>
-            </select>
-          </div>
-        </div>
-        <div id="nu-wrap-pass" style="display:none;margin-bottom:12px;">
-          <label>Contrase&ntilde;a temporal</label>
-          <input type="text" id="nu-pass" value="Polla2026" style="margin-top:5px;width:200px;"/>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-primary" style="width:auto;padding:10px 24px;" onclick="crearUsuarioIndividual()">

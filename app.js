@@ -1439,53 +1439,27 @@ function toggleFormUsuario() {
   }
 }
 
-function toggleModoUsuario() {
-  const modo = document.getElementById('nu-modo')?.value;
-  const wrapPass = document.getElementById('nu-wrap-pass');
-  if (wrapPass) wrapPass.style.display = modo === 'crear' ? 'block' : 'none';
-}
+// toggleModoUsuario removed
 
 async function crearUsuarioIndividual() {
-  const nombre = document.getElementById('nu-nombre')?.value.trim();
+  const nombre  = document.getElementById('nu-nombre')?.value.trim();
   const celular = document.getElementById('nu-celular')?.value.trim();
   const correo  = document.getElementById('nu-correo')?.value.trim();
-  const modo    = document.getElementById('nu-modo')?.value || 'invitar';
-  const pass    = document.getElementById('nu-pass')?.value || 'Polla2026';
 
   if (!nombre || !correo) { toast('\u26A0 Nombre y correo son obligatorios'); return; }
   if (!correo.includes('@')) { toast('\u26A0 Correo inv\u00E1lido'); return; }
 
   const btn = event.target;
   btn.disabled = true;
-  btn.textContent = '\u23F3 Procesando...';
+  btn.textContent = '\u23F3 Enviando invitaci\u00F3n...';
 
   try {
-    if (modo === 'invitar') {
-      // Generar link y enviar correo
-      const link = await generarLinkInvitacion(correo, nombre);
-      toast('\u2713 Invitaci\u00F3n enviada a ' + correo);
-    } else {
-      // Crear cuenta directamente
-      const cred = await auth.createUserWithEmailAndPassword(correo, pass);
-      await db.collection('usuarios').doc(cred.user.uid).set({
-        nombre, celular: celular || '', email: correo,
-        rol: 'user', passTemp: true,
-        creado: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      // Enviar correo de bienvenida
-      const enviado = await enviarCorreoInvitacion(correo, nombre,
-        window.location.origin + window.location.pathname);
-      toast('\u2713 Usuario creado' + (enviado ? ' y correo enviado' : ''));
-    }
+    await generarLinkInvitacion(correo, nombre);
+    toast('\u2713 Invitaci\u00F3n enviada a ' + correo);
     toggleFormUsuario();
     renderUsuarios();
   } catch(e) {
-    const msgs = {
-      'auth/email-already-in-use': 'Este correo ya est\u00E1 registrado',
-      'auth/invalid-email':        'Correo inv\u00E1lido',
-      'auth/weak-password':        'Contrase\u00F1a muy d\u00E9bil'
-    };
-    toast('\u274C ' + (msgs[e.code] || e.message));
+    toast('\u274C Error: ' + e.message);
   }
 
   btn.disabled = false;
