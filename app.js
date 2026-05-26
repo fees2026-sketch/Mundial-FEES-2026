@@ -1,8 +1,10 @@
 // FIREBASE CONFIG - inicializado en el bloque de scripts del head
 
 // CONSTANTES
-const ADMIN_EMAIL = "fees2026@gmail.com";
-const API_KEY_FOOTBALL = "8ccb25f8512b4cc51e437eae1b0edca7";
+const ADMIN_EMAIL        = "fees2026@gmail.com";
+const API_KEY_FOOTBALL   = "8ccb25f8512b4cc51e437eae1b0edca7";
+const EMAILJS_SERVICE_ID = "service_I5i5rnn";
+const EMAILJS_TEMPLATE   = "template_cyfytje";
 
 const PARTIDOS = [
   {id:"A1",grupo:"Grupo A",local:"México",visitante:"Sudáfrica",fecha:"11 Jun",sede:"Ciudad de México"},
@@ -1034,39 +1036,86 @@ function mostrarPreviewCargue(usuarios) {
         <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Contraseña temporal para todos</label>
         <input type="text" id="cargue-pass-temp" value="Polla2026" style="width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;"/>
       </div>
+      <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="cargue-solo-invitar" style="width:16px;height:16px;"
+            onchange="document.getElementById('wrap-pass-temp').style.display=this.checked?'none':'block'"/>
+          <span>Solo enviar invitaciones (no crear cuentas directamente)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+          <input type="checkbox" id="cargue-enviar-correo" checked style="width:16px;height:16px;"/>
+          <span>Enviar correo de invitación automáticamente</span>
+        </label>
+      </div>
+      <div id="wrap-pass-temp" style="margin-bottom:14px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Contraseña temporal para todos</label>
+        <input type="text" id="cargue-pass-temp" value="Polla2026" style="width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;"/>
+      </div>
       <button class="btn btn-primary" onclick="ejecutarCargue(${JSON.stringify(usuarios).replace(/"/g,'&quot;')})" style="width:auto;padding:10px 20px;">
-        ⬆ Crear ${usuarios.length} usuario(s)
+        ⬆ Procesar ${usuarios.length} usuario(s)
       </button>
     </div>`;
 }
 
 async function ejecutarCargue(usuarios) {
-  const passTemp = document.getElementById('cargue-pass-temp')?.value || 'Polla2026';
+  const soloInvitar = document.getElementById('cargue-solo-invitar')?.checked || false;
+  const enviarCorreo = document.getElementById('cargue-enviar-correo')?.checked || false;
   const btn = event.target;
   btn.disabled = true;
-  btn.textContent = 'Creando usuarios...';
-  let ok = 0, err = 0;
-  for (const u of usuarios) {
-    try {
-      const cred = await auth.createUserWithEmailAndPassword(u.correo, passTemp);
-      await db.collection('usuarios').doc(cred.user.uid).set({
-        nombre:  u.nombre || u.correo.split('@')[0],
-        celular: u.celular || '',
-        email:   u.correo,
-        rol:     'user',
-        passTemp: true,
-        creado:  firebase.firestore.FieldValue.serverTimestamp()
-      });
-      await firebase.auth().signOut();
-      // Re-login as admin
-      ok++;
-    } catch(e) {
-      console.error('Error creando ' + u.correo + ':', e.message);
-      err++;
+  let ok = 0, err = 0, invOk = 0;
+
+  if (soloInvitar) {
+    // Solo enviar invitaciones sin crear cuentas
+    btn.textContent = 'Enviando invitaciones...';
+    for (const u of usuarios) {
+      try {
+        const link = await generarLinkInvitacion(u.correo, u.nombre);
+        if (enviarCorreo && u.correo) {
+          await enviarCorreoInvitacion(u.correo, u.nombre, link);
+        }
+        invOk++;
+      } catch(e) {
+        console.error('Error invitando ' + u.correo + ':', e.message);
+        err++;
+      }
+      btn.textContent = `Enviando... ${invOk}/${usuarios.length}`;
     }
+    toast('✓ ' + invOk + ' invitación(es) enviada(s)' + (err ? ' · ' + err + ' errores' : ''));
+  } else {
+    // Crear cuentas directamente
+    const passTemp = document.getElementById('cargue-pass-temp')?.value || 'Polla2026';
+    btn.textContent = 'Creando usuarios...';
+    for (const u of usuarios) {
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(u.correo, passTemp);
+        await db.collection('usuarios').doc(cred.user.uid).set({
+          nombre:   u.nombre || u.correo.split('@')[0],
+          celular:  u.celular || '',
+          email:    u.correo,
+          rol:      'user',
+          passTemp: true,
+          creado:   firebase.firestore.FieldValue.serverTimestamp()
+        });
+        if (enviarCorreo && u.correo) {
+          // Enviar correo con credenciales
+          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE, {
+            nombre:       u.nombre || u.correo.split('@')[0],
+            link:         window.location.origin + window.location.pathname,
+            invitado_por: currentUser.nombre,
+            to_email:     u.correo
+          });
+        }
+        ok++;
+      } catch(e) {
+        console.error('Error creando ' + u.correo + ':', e.message);
+        err++;
+      }
+      btn.textContent = `Creando... ${ok}/${usuarios.length}`;
+    }
+    toast('✓ ' + ok + ' usuario(s) creado(s)' + (err ? ' · ' + err + ' errores' : ''));
   }
-  // Re-login admin
-  toast(`✓ ${ok} usuario(s) creado(s)${err?' · '+err+' errores':''}`);
+
+  btn.disabled = false;
   cerrarCargueUsuarios();
   renderUsuarios();
 }
@@ -1081,39 +1130,22 @@ function generarLinkInvitacionSimple() {
   return base + '?ref=' + ref;
 }
 
-async function abrirModalInvitar() {
+function abrirModalInvitar() {
   document.getElementById('modal-invitar').style.display = 'flex';
+  // Clear fields
+  ['invitar-nombre','invitar-email','invitar-tel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   const container = document.getElementById('invitar-link-preview');
-  if (container) container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Generando link...</div>';
-  // Generate a real token
-  const link = await generarLinkInvitacion();
-  if (container) container.innerHTML = `
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;word-break:break-all;color:var(--verde);margin-bottom:8px;">
-      ${link}
-    </div>
-    <div style="font-size:11px;color:var(--muted);">✓ Link generado y listo para compartir</div>`;
+  if (container) container.innerHTML = '';
 }
 
 function cerrarModalInvitar() {
   document.getElementById('modal-invitar').style.display = 'none';
 }
 
-async function enviarInvitacionCorreo() {
-  const tel = document.getElementById('invitar-tel').value.trim();
-  if (!tel) { toast('Ingresa el n\u00famero de celular'); return; }
-  // Generar token real para esta invitacion
-  const link = await generarLinkInvitacion();
-  const msg = encodeURIComponent(
-    'Hola! Te invitamos a participar en la Polla Mundialista FEES 2026 \u26BD\n\n' +
-    'Reg\u00EDstrate con tu link personal (solo para ti):\n' + link + '\n\n' +
-    'Te invita: ' + currentUser.nombre
-  );
-  const num = tel.replace(/[^0-9]/g,'');
-  const numIntl = num.startsWith('57') ? num : '57' + num;
-  window.open('https://wa.me/' + numIntl + '?text=' + msg, '_blank');
-  cerrarModalInvitar();
-  toast('\u2713 Invitaci\u00f3n enviada por WhatsApp');
-}
+// enviarInvitacionCorreo replaced by enviarInvitacionEmail/WA
 
 // Leer ref de invitacion al cargar
 function leerRefInvitacion() {
@@ -1244,7 +1276,7 @@ async function marcarInvitacionUsada(token) {
 // ============================================================
 // GENERAR LINKS DE INVITACION (ADMIN)
 // ============================================================
-async function generarLinkInvitacion() {
+async function generarLinkInvitacion(correoDestino, nombreDestino) {
   const token  = 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2,8);
   const base   = window.location.origin + window.location.pathname;
   const ref    = btoa(currentUser.uid + '|' + currentUser.nombre + '|' + token);
@@ -1253,14 +1285,27 @@ async function generarLinkInvitacion() {
   // Save token to Firestore
   await db.collection('invitaciones').doc(token).set({
     token,
-    creadoPor:       currentUser.uid,
-    creadoPorNombre: currentUser.nombre,
-    usado:           false,
-    creado:          firebase.firestore.FieldValue.serverTimestamp()
+    creadoPor:        currentUser.uid,
+    creadoPorNombre:  currentUser.nombre,
+    correoDestino:    correoDestino || '',
+    nombreDestino:    nombreDestino || '',
+    usado:            false,
+    creado:           firebase.firestore.FieldValue.serverTimestamp()
   });
 
-  navigator.clipboard.writeText(link);
-  toast('📋 Link copiado y guardado');
+  // Enviar por correo si se proporcionó email
+  if (correoDestino && correoDestino.includes('@')) {
+    const enviado = await enviarCorreoInvitacion(correoDestino, nombreDestino, link);
+    if (enviado) {
+      toast('✉️ Invitación enviada a ' + correoDestino);
+    } else {
+      navigator.clipboard.writeText(link);
+      toast('⚠️ Error enviando correo — link copiado');
+    }
+  } else {
+    navigator.clipboard.writeText(link);
+    toast('📋 Link copiado y guardado');
+  }
   renderLinksInvitacion();
   return link;
 }
@@ -1320,6 +1365,61 @@ async function eliminarInvitacion(id) {
   await db.collection('invitaciones').doc(id).delete();
   toast('Link eliminado');
   renderLinksInvitacion();
+}
+
+
+// ============================================================
+// ENVIO DE INVITACION POR CORREO (EmailJS)
+// ============================================================
+async function enviarCorreoInvitacion(correoDestino, nombreDestino, link) {
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE, {
+      nombre:      nombreDestino || correoDestino.split('@')[0],
+      link:        link,
+      invitado_por: currentUser ? currentUser.nombre : 'Administrador',
+      to_email:    correoDestino
+    });
+    return true;
+  } catch(e) {
+    console.error('EmailJS error:', e);
+    return false;
+  }
+}
+
+
+async function enviarInvitacionEmail() {
+  const nombre = document.getElementById('invitar-nombre')?.value.trim() || '';
+  const email  = document.getElementById('invitar-email')?.value.trim()  || '';
+  if (!email || !email.includes('@')) { toast('Ingresa un correo válido'); return; }
+  const btn = event.target; btn.disabled = true; btn.textContent = '⏳ Enviando...';
+  const link = await generarLinkInvitacion(email, nombre);
+  btn.disabled = false; btn.textContent = '✉️ Enviar por correo';
+  cerrarModalInvitar();
+}
+
+async function enviarInvitacionWA() {
+  const nombre = document.getElementById('invitar-nombre')?.value.trim() || '';
+  const email  = document.getElementById('invitar-email')?.value.trim()  || '';
+  const tel    = document.getElementById('invitar-tel')?.value.trim()    || '';
+  if (!tel) { toast('Ingresa el número de celular'); return; }
+  const link = await generarLinkInvitacion(email || '', nombre);
+  const msg = encodeURIComponent(
+    'Hola ' + (nombre || 'amigo') + '! \n\n' +
+    'Te invitamos a participar en la Polla Mundialista FEES 2026 \u26BD\n\n' +
+    'Reg\u00EDstrate con tu link personal (solo para ti):\n' + link + '\n\n' +
+    'Te invita: ' + currentUser.nombre
+  );
+  const num = tel.replace(/[^0-9]/g,'');
+  const numIntl = num.startsWith('57') ? num : '57' + num;
+  window.open('https://wa.me/' + numIntl + '?text=' + msg, '_blank');
+  cerrarModalInvitar();
+}
+
+async function soloGenerarLink() {
+  const nombre = document.getElementById('invitar-nombre')?.value.trim() || '';
+  const email  = document.getElementById('invitar-email')?.value.trim()  || '';
+  await generarLinkInvitacion(email || '', nombre);
+  cerrarModalInvitar();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
