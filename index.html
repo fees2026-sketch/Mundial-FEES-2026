@@ -228,6 +228,11 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
       <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Ingresar &rarr;</button>
       <p style="text-align:center;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer;" onclick="showResetPass()">&#128273; &iquest;Olvidaste tu contrase&ntilde;a?</p>
     </div>
+    <div id="registro-bloqueado" style="display:none;text-align:center;padding:16px;">
+      <div style="font-size:40px;margin-bottom:8px;">🔒</div>
+      <div style="font-size:15px;font-weight:700;color:var(--rojo);margin-bottom:8px;">Registro por invitación</div>
+      <div style="font-size:13px;color:var(--muted);">Para registrarte necesitas un link de invitación personal. Solicítalo al administrador.</div>
+    </div>
     <div id="form-registro" style="display:none;">
       <div class="inp-wrap"><label>Nombre completo</label><span class="ico">&#128100;</span><input type="text" id="r-nom" placeholder="Tu nombre"/></div>
       <div class="inp-wrap"><label>N&uacute;mero de celular</label><span class="ico">&#128241;</span><input type="tel" id="r-cel" placeholder="Ej: 3001234567"/></div>
@@ -410,6 +415,14 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
         <button class="btn btn-gold btn-sm" onclick="abrirCargueUsuarios()">&#11015; Cargue masivo</button>
       </div>
       <div id="lista-usuarios"></div>
+      <div class="card" style="margin-top:14px;">
+        <div class="card-title">&#128140; Links de invitaci&oacute;n</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Genera un link &uacute;nico por participante. Cada link solo puede usarse una vez.</p>
+        <button class="btn btn-primary" style="width:auto;padding:10px 20px;margin-bottom:16px;" onclick="generarLinkInvitacion()">
+          + Generar nuevo link
+        </button>
+        <div id="lista-invitaciones"></div>
+      </div>
     </div>
     <div id="admin-panel-config" style="display:none;">
       <div class="card">
@@ -514,17 +527,18 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
     <div style="margin-bottom:16px;">
       <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Tu link de invitaci&oacute;n</label>
       <div id="invitar-link-preview"></div>
-      <button class="btn btn-outline btn-sm" onclick="generarLinkInvitacion()">&#128203; Copiar link</button>
+      <button class="btn btn-primary" style="width:auto;padding:10px 20px;" onclick="generarLinkInvitacion()">+ Generar y copiar link</button>
     </div>
 
     <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px;">
       <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;">Enviar por WhatsApp</div>
-      <div style="margin-bottom:10px;">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Se generar&aacute; un link &uacute;nico e intransferible para esta persona.</p>
+      <div style="margin-bottom:12px;">
         <label>N&uacute;mero de celular del familiar</label>
         <input type="tel" id="invitar-tel" placeholder="Ej: 3001234567" style="margin-top:5px;"/>
       </div>
-      <button class="btn btn-primary" onclick="enviarInvitacionCorreo()" style="background:#25D366;">
-        &#128242; Enviar por WhatsApp
+      <button class="btn btn-primary" onclick="enviarInvitacionCorreo()" style="background:#25D366;width:100%;">
+        &#128242; Generar link y enviar por WhatsApp
       </button>
     </div>
   </div>

@@ -287,9 +287,15 @@ async function doLogin() {
 }
 
 async function doRegistro() {
+  // Verificar invitacion (excepto admin)
+  const emailVal = document.getElementById("r-email").value.trim();
+  if (emailVal !== ADMIN_EMAIL && !invitacionValida) {
+    showAuthErr("Necesitas un link de invitación válido para registrarte");
+    return;
+  }
   const nom   = document.getElementById("r-nom").value.trim();
   const cel   = document.getElementById("r-cel").value.trim();
-  const email = document.getElementById("r-email").value.trim();
+  const email = emailVal;
   const pass  = document.getElementById("r-pass").value;
   const pass2 = document.getElementById("r-pass2").value;
   if (!nom||!cel||!email||!pass) { showAuthErr("Completa todos los campos"); return; }
@@ -800,6 +806,8 @@ async function renderUsuarios() {
       }).join("")}
     </div>`;
   } catch(e) { container.innerHTML='<div class="empty">Error al cargar usuarios: '+e.message+'</div>'; }
+  // Load invitations
+  renderLinksInvitacion();
 }
 
 async function toggleAdmin(uid, nombre, rolActual) {
@@ -1050,24 +1058,24 @@ async function ejecutarCargue(usuarios) {
 // ============================================================
 // INVITACIONES
 // ============================================================
-function generarLinkInvitacion() {
+function generarLinkInvitacionSimple() {
+  // Simple version for modal preview (async version is generarLinkInvitacion)
   const base = window.location.origin + window.location.pathname;
-  const ref   = btoa(currentUser.uid + '|' + currentUser.nombre);
-  const link  = base + '?ref=' + ref;
-  navigator.clipboard.writeText(link);
-  toast('📋 Link copiado: compártelo con tu familiar');
-  return link;
+  const ref   = btoa(currentUser.uid + '|' + currentUser.nombre + '|pending');
+  return base + '?ref=' + ref;
 }
 
-function abrirModalInvitar() {
+async function abrirModalInvitar() {
   document.getElementById('modal-invitar').style.display = 'flex';
-  // Show personal link
-  const link = generarLinkInvitacion().replace(/&/g,'&amp;');
   const container = document.getElementById('invitar-link-preview');
+  if (container) container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Generando link...</div>';
+  // Generate a real token
+  const link = await generarLinkInvitacion();
   if (container) container.innerHTML = `
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;word-break:break-all;color:var(--verde);margin-bottom:12px;">
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;word-break:break-all;color:var(--verde);margin-bottom:8px;">
       ${link}
-    </div>`;
+    </div>
+    <div style="font-size:11px;color:var(--muted);">✓ Link generado y listo para compartir</div>`;
 }
 
 function cerrarModalInvitar() {
@@ -1075,26 +1083,20 @@ function cerrarModalInvitar() {
 }
 
 async function enviarInvitacionCorreo() {
-  const correo = document.getElementById('invitar-correo').value.trim();
-  if (!correo || !correo.includes('@')) { toast('Ingresa un correo válido'); return; }
-  const link = generarLinkInvitacion();
+  const tel = document.getElementById('invitar-tel').value.trim();
+  if (!tel) { toast('Ingresa el n\u00famero de celular'); return; }
+  // Generar token real para esta invitacion
+  const link = await generarLinkInvitacion();
   const msg = encodeURIComponent(
-    'Hola! Te invito a participar en la Polla Mundialista 2026.\n\n' +
-    'Registrate aqui: ' + link + '\n\n' +
+    'Hola! Te invitamos a participar en la Polla Mundialista FEES 2026 \u26BD\n\n' +
+    'Reg\u00EDstrate con tu link personal (solo para ti):\n' + link + '\n\n' +
     'Te invita: ' + currentUser.nombre
   );
-  // Open WhatsApp with the invitation
-  const tel = document.getElementById('invitar-tel').value.trim();
-  if (tel) {
-    const num = tel.replace(/[^0-9]/g,'');
-    const numIntl = num.startsWith('57') ? num : '57' + num;
-    window.open('https://wa.me/' + numIntl + '?text=' + msg, '_blank');
-  } else {
-    // Copy link
-    navigator.clipboard.writeText(link);
-    toast('Link de invitacion copiado para ' + correo);
-  }
+  const num = tel.replace(/[^0-9]/g,'');
+  const numIntl = num.startsWith('57') ? num : '57' + num;
+  window.open('https://wa.me/' + numIntl + '?text=' + msg, '_blank');
   cerrarModalInvitar();
+  toast('\u2713 Invitaci\u00f3n enviada por WhatsApp');
 }
 
 // Leer ref de invitacion al cargar
@@ -1164,9 +1166,150 @@ async function guardarSlogan() {
   toast('✓ Slogan actualizado');
 }
 
+
+// ============================================================
+// CONTROL DE INVITACIONES
+// ============================================================
+let invitacionValida = false;
+let invitacionData  = null; // { uid, nombre, token }
+
+async function verificarInvitacion() {
+  const params = new URLSearchParams(window.location.search);
+  const ref    = params.get('ref');
+  const tab    = document.getElementById('tab-reg-btn');
+  const form   = document.getElementById('form-registro');
+  const bloq   = document.getElementById('registro-bloqueado');
+
+  if (!ref) {
+    // Sin link — bloquear registro
+    invitacionValida = false;
+    if (tab)  tab.style.display = 'none';
+    if (form) form.style.display = 'none';
+    if (bloq) bloq.style.display = 'block';
+    return;
+  }
+
+  try {
+    const decoded = atob(ref);
+    const parts   = decoded.split('|');
+    // Format: uid|nombre|token
+    if (parts.length >= 2) {
+      const token = parts[2] || '';
+      // Verify token exists in Firestore
+      if (token) {
+        const snap = await db.collection('invitaciones').doc(token).get();
+        if (!snap.exists || snap.data().usado) {
+          invitacionValida = false;
+          if (tab)  tab.style.display = 'none';
+          if (bloq) bloq.style.display = 'block';
+          bloq.innerHTML = '<div style="text-align:center;padding:16px;"><div style="font-size:32px;margin-bottom:8px;">⛔</div><div style="font-size:14px;font-weight:600;color:var(--rojo);">Link inválido o ya usado</div><div style="font-size:13px;color:var(--muted);margin-top:6px;">Solicita un nuevo link al administrador</div></div>';
+          return;
+        }
+      }
+      invitacionValida = true;
+      invitacionData   = { uid: parts[0], nombre: parts[1], token };
+      if (tab)  { tab.style.display = ''; tab.click(); }
+      if (bloq) bloq.style.display = 'none';
+      // Pre-fill nombre if available from URL
+    }
+  } catch(e) {
+    invitacionValida = false;
+    if (tab)  tab.style.display = 'none';
+  }
+}
+
+async function marcarInvitacionUsada(token) {
+  if (!token) return;
+  try {
+    await db.collection('invitaciones').doc(token).update({ usado: true, usadoEn: firebase.firestore.FieldValue.serverTimestamp() });
+  } catch(e) { console.error('Error marcando invitacion:', e); }
+}
+
+// ============================================================
+// GENERAR LINKS DE INVITACION (ADMIN)
+// ============================================================
+async function generarLinkInvitacion() {
+  const token  = 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2,8);
+  const base   = window.location.origin + window.location.pathname;
+  const ref    = btoa(currentUser.uid + '|' + currentUser.nombre + '|' + token);
+  const link   = base + '?ref=' + ref;
+
+  // Save token to Firestore
+  await db.collection('invitaciones').doc(token).set({
+    token,
+    creadoPor:       currentUser.uid,
+    creadoPorNombre: currentUser.nombre,
+    usado:           false,
+    creado:          firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  navigator.clipboard.writeText(link);
+  toast('📋 Link copiado y guardado');
+  renderLinksInvitacion();
+  return link;
+}
+
+async function renderLinksInvitacion() {
+  const container = document.getElementById('lista-invitaciones');
+  if (!container) return;
+  container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Cargando...</div>';
+  try {
+    const snap = await db.collection('invitaciones').orderBy('creado','desc').limit(20).get();
+    if (snap.empty) {
+      container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No hay links generados aún</div>';
+      return;
+    }
+    const base = window.location.origin + window.location.pathname;
+    container.innerHTML = snap.docs.map(doc => {
+      const d    = doc.data();
+      const ref  = btoa((d.creadoPor||'') + '|' + (d.creadoPorNombre||'') + '|' + d.token);
+      const link = base + '?ref=' + ref;
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;">${d.creadoPorNombre||'Admin'}
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;background:${d.usado?'#fee2e2':'#d4edd9'};color:${d.usado?'#c0392b':'#1a6b3c'};">
+              ${d.usado ? '✓ Usado' : '⏳ Pendiente'}
+            </span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${link}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          ${!d.usado ? `<button class="btn btn-outline btn-sm" onclick="copiarLink('${link}')">📋 Copiar</button>
+          <button class="btn btn-outline btn-sm" onclick="compartirWhatsAppInv('${link}','${d.creadoPorNombre||''}')">📲 WA</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="eliminarInvitacion('${doc.id}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--rojo);">Error cargando links: ' + e.message + '</div>';
+  }
+}
+
+function copiarLink(link) {
+  navigator.clipboard.writeText(link);
+  toast('📋 Link copiado');
+}
+
+function compartirWhatsAppInv(link, nombre) {
+  const msg = encodeURIComponent(
+    'Hola! Te invitamos a participar en la Polla Mundialista FEES 2026 \u26BD\n\n' +
+    'Reg\u00EDstrate aqu\u00ED con tu link personal:\n' + link + '\n\n' +
+    '\u00A1\u00DAnico e intransferible!'
+  );
+  window.open('https://wa.me/?text=' + msg, '_blank');
+}
+
+async function eliminarInvitacion(id) {
+  if (!confirm('\u00BFEliminar este link?')) return;
+  await db.collection('invitaciones').doc(id).delete();
+  toast('Link eliminado');
+  renderLinksInvitacion();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   init();
   cargarResultados();
+  verificarInvitacion();
   // Fallback: si onAuthStateChanged no responde en 6s, mostrar login
   setTimeout(() => {
     const overlay = document.getElementById('loading-overlay');
