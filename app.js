@@ -585,6 +585,7 @@ async function cargarResultados() {
   const snap = await db.collection("resultados").get();
   snap.forEach(doc => { resultados[doc.id] = doc.data(); });
   await cargarConfigPartidos();
+  await cargarSlogan();
   renderPartidos(); renderResultados();
 }
 
@@ -1129,6 +1130,38 @@ function descargarPlantilla() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), 'Usuarios');
   XLSX.writeFile(wb, 'plantilla_usuarios.xlsx');
   toast('Plantilla descargada');
+}
+
+
+// ============================================================
+// SLOGAN EDITABLE
+// ============================================================
+async function cargarSlogan() {
+  try {
+    const snap = await db.collection('config').doc('global').get();
+    if (snap.exists && snap.data().slogan) {
+      const slogan = snap.data().slogan;
+      const els = ['header-slogan', 'auth-slogan'];
+      els.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = slogan;
+      });
+      const inp = document.getElementById('inp-slogan');
+      if (inp) inp.value = slogan;
+    }
+  } catch(e) { console.error('Error cargando slogan:', e); }
+}
+
+async function guardarSlogan() {
+  const slogan = document.getElementById('inp-slogan')?.value.trim();
+  if (!slogan) { toast('Escribe un slogan'); return; }
+  await db.collection('config').doc('global').set({ slogan }, { merge: true });
+  // Update UI
+  ['header-slogan', 'auth-slogan'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = slogan;
+  });
+  toast('✓ Slogan actualizado');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
