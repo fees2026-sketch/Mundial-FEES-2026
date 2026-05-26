@@ -1036,85 +1036,33 @@ function mostrarPreviewCargue(usuarios) {
         <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Contraseña temporal para todos</label>
         <input type="text" id="cargue-pass-temp" value="Polla2026" style="width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;"/>
       </div>
-      <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
-          <input type="checkbox" id="cargue-solo-invitar" style="width:16px;height:16px;"
-            onchange="document.getElementById('wrap-pass-temp').style.display=this.checked?'none':'block'"/>
-          <span>Solo enviar invitaciones (no crear cuentas directamente)</span>
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
-          <input type="checkbox" id="cargue-enviar-correo" checked style="width:16px;height:16px;"/>
-          <span>Enviar correo de invitación automáticamente</span>
-        </label>
-      </div>
-      <div id="wrap-pass-temp" style="margin-bottom:14px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;">Contraseña temporal para todos</label>
-        <input type="text" id="cargue-pass-temp" value="Polla2026" style="width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;"/>
+      <div style="background:var(--verde-light);border:1px solid #a3d9b8;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--verde);">
+        ✉️ Se enviar&aacute; una invitaci&oacute;n por correo a cada persona con su link personal &uacute;nico.
       </div>
       <button class="btn btn-primary" onclick="ejecutarCargue(${JSON.stringify(usuarios).replace(/"/g,'&quot;')})" style="width:auto;padding:10px 20px;">
-        ⬆ Procesar ${usuarios.length} usuario(s)
+        &#9993; Enviar ${usuarios.length} invitaci&oacute;n(es)
       </button>
     </div>`;
 }
 
 async function ejecutarCargue(usuarios) {
-  const soloInvitar = document.getElementById('cargue-solo-invitar')?.checked || false;
-  const enviarCorreo = document.getElementById('cargue-enviar-correo')?.checked || false;
   const btn = event.target;
   btn.disabled = true;
-  let ok = 0, err = 0, invOk = 0;
+  let ok = 0, err = 0;
 
-  if (soloInvitar) {
-    // Solo enviar invitaciones sin crear cuentas
-    btn.textContent = 'Enviando invitaciones...';
-    for (const u of usuarios) {
-      try {
-        const link = await generarLinkInvitacion(u.correo, u.nombre);
-        if (enviarCorreo && u.correo) {
-          await enviarCorreoInvitacion(u.correo, u.nombre, link);
-        }
-        invOk++;
-      } catch(e) {
-        console.error('Error invitando ' + u.correo + ':', e.message);
-        err++;
-      }
-      btn.textContent = `Enviando... ${invOk}/${usuarios.length}`;
+  btn.textContent = 'Enviando invitaciones...';
+  for (const u of usuarios) {
+    try {
+      await generarLinkInvitacion(u.correo, u.nombre);
+      ok++;
+    } catch(e) {
+      console.error('Error invitando ' + u.correo + ':', e.message);
+      err++;
     }
-    toast('✓ ' + invOk + ' invitación(es) enviada(s)' + (err ? ' · ' + err + ' errores' : ''));
-  } else {
-    // Crear cuentas directamente
-    const passTemp = document.getElementById('cargue-pass-temp')?.value || 'Polla2026';
-    btn.textContent = 'Creando usuarios...';
-    for (const u of usuarios) {
-      try {
-        const cred = await auth.createUserWithEmailAndPassword(u.correo, passTemp);
-        await db.collection('usuarios').doc(cred.user.uid).set({
-          nombre:   u.nombre || u.correo.split('@')[0],
-          celular:  u.celular || '',
-          email:    u.correo,
-          rol:      'user',
-          passTemp: true,
-          creado:   firebase.firestore.FieldValue.serverTimestamp()
-        });
-        if (enviarCorreo && u.correo) {
-          // Enviar correo con credenciales
-          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE, {
-            nombre:       u.nombre || u.correo.split('@')[0],
-            link:         window.location.origin + window.location.pathname,
-            invitado_por: currentUser.nombre,
-            to_email:     u.correo
-          });
-        }
-        ok++;
-      } catch(e) {
-        console.error('Error creando ' + u.correo + ':', e.message);
-        err++;
-      }
-      btn.textContent = `Creando... ${ok}/${usuarios.length}`;
-    }
-    toast('✓ ' + ok + ' usuario(s) creado(s)' + (err ? ' · ' + err + ' errores' : ''));
+    btn.textContent = 'Enviando... ' + ok + '/' + usuarios.length;
   }
 
+  toast('\u2713 ' + ok + ' invitaci\u00F3n(es) enviada(s)' + (err ? ' \u00B7 ' + err + ' errores' : ''));
   btn.disabled = false;
   cerrarCargueUsuarios();
   renderUsuarios();
