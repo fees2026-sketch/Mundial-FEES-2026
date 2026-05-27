@@ -141,7 +141,6 @@ async function cargarConfigPartidos() {
     const snap2 = await db.collection("config").doc("global").get();
     if (snap2.exists) {
       configGlobal = snap2.data() || {};
-      // Sync UI
       const cg = document.getElementById('cierre-global-grupos');
       const ce = document.getElementById('cierre-global-elim');
       const oa = document.getElementById('ocultar-apuestas');
@@ -149,6 +148,9 @@ async function cargarConfigPartidos() {
       if (ce && configGlobal.cierreElim)   ce.value = configGlobal.cierreElim;
       if (oa) oa.checked = !!configGlobal.ocultarApuestas;
     }
+    // Re-render config partidos si ya está visible para mostrar campos de desempate
+    const panel = document.getElementById('admin-panel-config');
+    if (panel && panel.style.display !== 'none') renderConfigPartidos();
   } catch(e) { console.error('Error cargando config:', e); }
 }
 
