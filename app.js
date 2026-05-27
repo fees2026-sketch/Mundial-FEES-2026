@@ -412,6 +412,52 @@ function autoFill() {
   document.getElementById("inp-grupo").value     = p.grupo;
   document.getElementById("lbl-local").textContent = p.local;
   document.getElementById("lbl-visit").textContent = p.visitante;
+  // Mostrar campos de desempate si el admin los configuró
+  renderDesempateApuesta(pid, p.local, p.visitante);
+}
+
+function renderDesempateApuesta(pid, local, visitante) {
+  const cfg = configPartidos[pid] || {};
+  const container = document.getElementById('sec-desempate');
+  if (!container) return;
+  let html = '';
+  if (cfg.tarjetas) {
+    html += `<div style="margin-top:14px;padding:12px 14px;background:var(--oro-light);border:1px solid #f0d89a;border-radius:var(--radius);">
+      <div style="font-size:12px;font-weight:700;color:var(--oro);margin-bottom:10px;">🟨 Desempate — Tarjetas amarillas</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">${local}</div>
+          <input type="number" id="inp-tarjetas-local" min="0" max="20" value="0"
+            style="width:64px;text-align:center;font-size:20px;font-weight:700;padding:8px 4px;border:1px solid var(--border);border-radius:8px;font-family:Inter,sans-serif;background:var(--bg);"/>
+        </div>
+        <div style="font-size:12px;color:var(--muted);font-weight:700;">VS</div>
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">${visitante}</div>
+          <input type="number" id="inp-tarjetas-visit" min="0" max="20" value="0"
+            style="width:64px;text-align:center;font-size:20px;font-weight:700;padding:8px 4px;border:1px solid var(--border);border-radius:8px;font-family:Inter,sans-serif;background:var(--bg);"/>
+        </div>
+      </div>
+    </div>`;
+  }
+  if (cfg.esquinas) {
+    html += `<div style="margin-top:10px;padding:12px 14px;background:#e8eef7;border:1px solid #c5d4e8;border-radius:var(--radius);">
+      <div style="font-size:12px;font-weight:700;color:var(--verde);margin-bottom:10px;">🔄 Desempate — Tiros de esquina</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">${local}</div>
+          <input type="number" id="inp-esquinas-local" min="0" max="30" value="0"
+            style="width:64px;text-align:center;font-size:20px;font-weight:700;padding:8px 4px;border:1px solid var(--border);border-radius:8px;font-family:Inter,sans-serif;background:var(--bg);"/>
+        </div>
+        <div style="font-size:12px;color:var(--muted);font-weight:700;">VS</div>
+        <div style="text-align:center;flex:1;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">${visitante}</div>
+          <input type="number" id="inp-esquinas-visit" min="0" max="30" value="0"
+            style="width:64px;text-align:center;font-size:20px;font-weight:700;padding:8px 4px;border:1px solid var(--border);border-radius:8px;font-family:Inter,sans-serif;background:var(--bg);"/>
+        </div>
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html;
 }
 
 // REGISTRAR APUESTA
@@ -449,6 +495,16 @@ async function registrar() {
     if (tipo === "grupo") {
       a.golLocal     = parseInt(document.getElementById("inp-gl").value)||0;
       a.golVisitante = parseInt(document.getElementById("inp-gv").value)||0;
+      // Guardar desempate si aplica
+      const cfgP = configPartidos[pid] || {};
+      if (cfgP.tarjetas) {
+        a.tarjetasLocal    = parseInt(document.getElementById("inp-tarjetas-local")?.value)||0;
+        a.tarjetasVisitante= parseInt(document.getElementById("inp-tarjetas-visit")?.value)||0;
+      }
+      if (cfgP.esquinas) {
+        a.esquinasLocal    = parseInt(document.getElementById("inp-esquinas-local")?.value)||0;
+        a.esquinasVisitante= parseInt(document.getElementById("inp-esquinas-visit")?.value)||0;
+      }
     }
   }
   try {
@@ -461,6 +517,8 @@ async function registrar() {
     document.getElementById("inp-campeon").value  = "";
     document.getElementById("inp-gl").value = 1;
     document.getElementById("inp-gv").value = 0;
+    const secDesemp = document.getElementById('sec-desempate');
+    if (secDesemp) secDesemp.innerHTML = '';
   } catch(e) { toast("❌ Error al guardar: "+e.message); }
 }
 
