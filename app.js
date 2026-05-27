@@ -20,7 +20,7 @@ const PARTIDOS = [
   {id:"B5",grupo:"Grupo B",local:"Suiza",visitante:"Canadá",fecha:"24 Jun",sede:"Vancouver"},
   {id:"B6",grupo:"Grupo B",local:"Bosnia y Herz.",visitante:"Qatar",fecha:"24 Jun",sede:"Seattle"},
   {id:"C1",grupo:"Grupo C",local:"Brasil",visitante:"Marruecos",fecha:"13 Jun",sede:"Nueva York"},
-  {id:"C2",grupo:"Grupo C",local:"Haití",visitante:"Escocia",fecha:"13 Jun",sede:"Boston"},
+  {id:"C2",grupo:"Grupo C",local:"Haití",visitante:"Escocia",fecha:"13 Jun",sede:"Filadelfia"},
   {id:"C3",grupo:"Grupo C",local:"Brasil",visitante:"Haití",fecha:"19 Jun",sede:"Filadelfia"},
   {id:"C4",grupo:"Grupo C",local:"Escocia",visitante:"Marruecos",fecha:"19 Jun",sede:"Boston"},
   {id:"C5",grupo:"Grupo C",local:"Escocia",visitante:"Brasil",fecha:"24 Jun",sede:"Miami"},
@@ -40,43 +40,43 @@ const PARTIDOS = [
   {id:"F1",grupo:"Grupo F",local:"Países Bajos",visitante:"Japón",fecha:"14 Jun",sede:"Dallas"},
   {id:"F2",grupo:"Grupo F",local:"Suecia",visitante:"Túnez",fecha:"14 Jun",sede:"Monterrey"},
   {id:"F3",grupo:"Grupo F",local:"Países Bajos",visitante:"Suecia",fecha:"20 Jun",sede:"Houston"},
-  {id:"F4",grupo:"Grupo F",local:"Japón",visitante:"Túnez",fecha:"20 Jun",sede:"Monterrey"},
+  {id:"F4",grupo:"Grupo F",local:"Túnez",visitante:"Japón",fecha:"20 Jun",sede:"Monterrey"},
   {id:"F5",grupo:"Grupo F",local:"Túnez",visitante:"Países Bajos",fecha:"25 Jun",sede:"Kansas City"},
   {id:"F6",grupo:"Grupo F",local:"Japón",visitante:"Suecia",fecha:"25 Jun",sede:"Dallas"},
   {id:"G1",grupo:"Grupo G",local:"Bélgica",visitante:"Egipto",fecha:"15 Jun",sede:"Seattle"},
   {id:"G2",grupo:"Grupo G",local:"Irán",visitante:"Nueva Zelanda",fecha:"15 Jun",sede:"Los Ángeles"},
   {id:"G3",grupo:"Grupo G",local:"Bélgica",visitante:"Irán",fecha:"21 Jun",sede:"Los Ángeles"},
-  {id:"G4",grupo:"Grupo G",local:"Egipto",visitante:"Nueva Zelanda",fecha:"21 Jun",sede:"Vancouver"},
+  {id:"G4",grupo:"Grupo G",local:"Nueva Zelanda",visitante:"Egipto",fecha:"21 Jun",sede:"Vancouver"},
   {id:"G5",grupo:"Grupo G",local:"Nueva Zelanda",visitante:"Bélgica",fecha:"26 Jun",sede:"Vancouver"},
   {id:"G6",grupo:"Grupo G",local:"Egipto",visitante:"Irán",fecha:"26 Jun",sede:"Seattle"},
-  {id:"H1",grupo:"Grupo H",local:"España",visitante:"Cabo Verde",fecha:"15 Jun",sede:"Miami"},
-  {id:"H2",grupo:"Grupo H",local:"Uruguay",visitante:"Arabia Saudita",fecha:"15 Jun",sede:"Kansas City"},
-  {id:"H3",grupo:"Grupo H",local:"España",visitante:"Uruguay",fecha:"21 Jun",sede:"Dallas"},
-  {id:"H4",grupo:"Grupo H",local:"Cabo Verde",visitante:"Arabia Saudita",fecha:"21 Jun",sede:"Houston"},
-  {id:"H5",grupo:"Grupo H",local:"Arabia Saudita",visitante:"España",fecha:"26 Jun",sede:"Miami"},
-  {id:"H6",grupo:"Grupo H",local:"Cabo Verde",visitante:"Uruguay",fecha:"26 Jun",sede:"Houston"},
-  {id:"I1",grupo:"Grupo I",local:"Francia",visitante:"Senegal",fecha:"16 Jun",sede:"Atlanta"},
-  {id:"I2",grupo:"Grupo I",local:"Noruega",visitante:"Irak",fecha:"16 Jun",sede:"Filadelfia"},
-  {id:"I3",grupo:"Grupo I",local:"Francia",visitante:"Noruega",fecha:"22 Jun",sede:"San Francisco"},
-  {id:"I4",grupo:"Grupo I",local:"Senegal",visitante:"Irak",fecha:"22 Jun",sede:"Atlanta"},
-  {id:"I5",grupo:"Grupo I",local:"Noruega",visitante:"Senegal",fecha:"26 Jun",sede:"Boston"},
-  {id:"I6",grupo:"Grupo I",local:"Irak",visitante:"Francia",fecha:"26 Jun",sede:"Miami"},
-  {id:"J1",grupo:"Grupo J",local:"Argentina",visitante:"Argelia",fecha:"16 Jun",sede:"Dallas"},
-  {id:"J2",grupo:"Grupo J",local:"Austria",visitante:"Jordania",fecha:"16 Jun",sede:"Boston"},
-  {id:"J3",grupo:"Grupo J",local:"Argentina",visitante:"Austria",fecha:"22 Jun",sede:"Los Ángeles"},
-  {id:"J4",grupo:"Grupo J",local:"Argelia",visitante:"Jordania",fecha:"22 Jun",sede:"Dallas"},
-  {id:"J5",grupo:"Grupo J",local:"Argentina",visitante:"Jordania",fecha:"27 Jun",sede:"Miami"},
-  {id:"J6",grupo:"Grupo J",local:"Argelia",visitante:"Austria",fecha:"27 Jun",sede:"Boston"},
-  {id:"K1",grupo:"Grupo K",local:"Portugal",visitante:"Rep. Dem. Congo",fecha:"17 Jun",sede:"Filadelfia"},
-  {id:"K2",grupo:"Grupo K",local:"Colombia",visitante:"Uzbekistán",fecha:"17 Jun",sede:"Seattle"},
+  {id:"H1",grupo:"Grupo H",local:"España",visitante:"Cabo Verde",fecha:"15 Jun",sede:"Atlanta"},
+  {id:"H2",grupo:"Grupo H",local:"Arabia Saudita",visitante:"Uruguay",fecha:"15 Jun",sede:"Miami"},
+  {id:"H3",grupo:"Grupo H",local:"España",visitante:"Arabia Saudita",fecha:"21 Jun",sede:"Atlanta"},
+  {id:"H4",grupo:"Grupo H",local:"Uruguay",visitante:"Cabo Verde",fecha:"21 Jun",sede:"Miami"},
+  {id:"H5",grupo:"Grupo H",local:"Uruguay",visitante:"España",fecha:"26 Jun",sede:"Guadalajara"},
+  {id:"H6",grupo:"Grupo H",local:"Cabo Verde",visitante:"Arabia Saudita",fecha:"26 Jun",sede:"Houston"},
+  {id:"I1",grupo:"Grupo I",local:"Francia",visitante:"Senegal",fecha:"16 Jun",sede:"Nueva York"},
+  {id:"I2",grupo:"Grupo I",local:"Irak",visitante:"Noruega",fecha:"16 Jun",sede:"Boston"},
+  {id:"I3",grupo:"Grupo I",local:"Francia",visitante:"Irak",fecha:"22 Jun",sede:"Filadelfia"},
+  {id:"I4",grupo:"Grupo I",local:"Noruega",visitante:"Senegal",fecha:"22 Jun",sede:"Nueva York"},
+  {id:"I5",grupo:"Grupo I",local:"Senegal",visitante:"Irak",fecha:"26 Jun",sede:"Toronto"},
+  {id:"I6",grupo:"Grupo I",local:"Noruega",visitante:"Francia",fecha:"26 Jun",sede:"Miami"},
+  {id:"J1",grupo:"Grupo J",local:"Argentina",visitante:"Argelia",fecha:"16 Jun",sede:"Kansas City"},
+  {id:"J2",grupo:"Grupo J",local:"Austria",visitante:"Jordania",fecha:"16 Jun",sede:"San Francisco"},
+  {id:"J3",grupo:"Grupo J",local:"Argentina",visitante:"Austria",fecha:"22 Jun",sede:"Dallas"},
+  {id:"J4",grupo:"Grupo J",local:"Jordania",visitante:"Argelia",fecha:"22 Jun",sede:"San Francisco"},
+  {id:"J5",grupo:"Grupo J",local:"Jordania",visitante:"Argentina",fecha:"27 Jun",sede:"Dallas"},
+  {id:"J6",grupo:"Grupo J",local:"Argelia",visitante:"Austria",fecha:"27 Jun",sede:"Kansas City"},
+  {id:"K1",grupo:"Grupo K",local:"Portugal",visitante:"Rep. Dem. Congo",fecha:"17 Jun",sede:"Houston"},
+  {id:"K2",grupo:"Grupo K",local:"Uzbekistán",visitante:"Colombia",fecha:"17 Jun",sede:"Ciudad de México"},
   {id:"K3",grupo:"Grupo K",local:"Portugal",visitante:"Uzbekistán",fecha:"23 Jun",sede:"Houston"},
-  {id:"K4",grupo:"Grupo K",local:"Colombia",visitante:"Rep. Dem. Congo",fecha:"23 Jun",sede:"Dallas"},
-  {id:"K5",grupo:"Grupo K",local:"Uzbekistán",visitante:"Colombia",fecha:"27 Jun",sede:"Kansas City"},
-  {id:"K6",grupo:"Grupo K",local:"Rep. Dem. Congo",visitante:"Portugal",fecha:"27 Jun",sede:"Atlanta"},
-  {id:"L1",grupo:"Grupo L",local:"Inglaterra",visitante:"Croacia",fecha:"17 Jun",sede:"Nueva York"},
-  {id:"L2",grupo:"Grupo L",local:"Ghana",visitante:"Panamá",fecha:"17 Jun",sede:"Kansas City"},
-  {id:"L3",grupo:"Grupo L",local:"Inglaterra",visitante:"Ghana",fecha:"23 Jun",sede:"San Francisco"},
-  {id:"L4",grupo:"Grupo L",local:"Croacia",visitante:"Panamá",fecha:"23 Jun",sede:"Filadelfia"},
+  {id:"K4",grupo:"Grupo K",local:"Colombia",visitante:"Rep. Dem. Congo",fecha:"23 Jun",sede:"Guadalajara"},
+  {id:"K5",grupo:"Grupo K",local:"Colombia",visitante:"Portugal",fecha:"27 Jun",sede:"Miami"},
+  {id:"K6",grupo:"Grupo K",local:"Rep. Dem. Congo",visitante:"Uzbekistán",fecha:"27 Jun",sede:"Atlanta"},
+  {id:"L1",grupo:"Grupo L",local:"Inglaterra",visitante:"Croacia",fecha:"17 Jun",sede:"Dallas"},
+  {id:"L2",grupo:"Grupo L",local:"Ghana",visitante:"Panamá",fecha:"17 Jun",sede:"Toronto"},
+  {id:"L3",grupo:"Grupo L",local:"Inglaterra",visitante:"Ghana",fecha:"23 Jun",sede:"Boston"},
+  {id:"L4",grupo:"Grupo L",local:"Panamá",visitante:"Croacia",fecha:"23 Jun",sede:"Toronto"},
   {id:"L5",grupo:"Grupo L",local:"Croacia",visitante:"Ghana",fecha:"27 Jun",sede:"Filadelfia"},
   {id:"L6",grupo:"Grupo L",local:"Panamá",visitante:"Inglaterra",fecha:"27 Jun",sede:"Nueva York"},
 ];
@@ -182,6 +182,13 @@ async function saveDesempate(pid, campo, value) {
   configPartidos[pid][campo] = value;
   await db.collection("config").doc("partidos").set(configPartidos, {merge:false});
   toast('✓ Desempate actualizado');
+}
+
+async function saveDesempateValor(pid, campo, value) {
+  if (!configPartidos[pid]) configPartidos[pid] = {};
+  configPartidos[pid][campo] = parseInt(value) || 0;
+  await db.collection("config").doc("partidos").set(configPartidos, {merge:false});
+  toast('✓ Valor guardado');
 }
 function saveCriterios(){localStorage.setItem("polla_criterios",JSON.stringify(criterios));renderPtsInfo();renderApuestas();renderTabla();}
 function getPts(id){return (criterios.find(c=>c.id===id)||{pts:0}).pts;}
@@ -758,15 +765,40 @@ function renderConfigPartidos() {
                 onchange="saveCierrePartido('${p.id}', this.value)"
                 style="font-size:12px;padding:6px 10px;width:auto;"/>
             </div>
-            <div style="display:flex;flex-direction:column;gap:4px;">
-              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;">
-                <input type="checkbox" ${cfg.tarjetas?'checked':''} onchange="saveDesempate('${p.id}','tarjetas',this.checked)" style="width:14px;height:14px;"/>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Desempate</div>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+                <input type="checkbox" ${cfg.tarjetas?'checked':''} 
+                  onchange="saveDesempate('${p.id}','tarjetas',this.checked);renderConfigPartidos();" 
+                  style="width:14px;height:14px;flex-shrink:0;"/>
                 🟨 Tarjetas amarillas
               </label>
-              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;">
-                <input type="checkbox" ${cfg.esquinas?'checked':''} onchange="saveDesempate('${p.id}','esquinas',this.checked)" style="width:14px;height:14px;"/>
+              ${cfg.tarjetas ? `<div style="display:flex;align-items:center;gap:6px;margin-left:20px;">
+                <label style="font-size:11px;color:var(--muted);white-space:nowrap;">Local:</label>
+                <input type="number" min="0" max="20" value="${cfg.tarjetasLocal||0}"
+                  onchange="saveDesempateValor('${p.id}','tarjetasLocal',this.value)"
+                  style="width:52px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+                <label style="font-size:11px;color:var(--muted);white-space:nowrap;">Visitante:</label>
+                <input type="number" min="0" max="20" value="${cfg.tarjetasVisitante||0}"
+                  onchange="saveDesempateValor('${p.id}','tarjetasVisitante',this.value)"
+                  style="width:52px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+              </div>` : ''}
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+                <input type="checkbox" ${cfg.esquinas?'checked':''}
+                  onchange="saveDesempate('${p.id}','esquinas',this.checked);renderConfigPartidos();"
+                  style="width:14px;height:14px;flex-shrink:0;"/>
                 🔄 Tiros de esquina
               </label>
+              ${cfg.esquinas ? `<div style="display:flex;align-items:center;gap:6px;margin-left:20px;">
+                <label style="font-size:11px;color:var(--muted);white-space:nowrap;">Local:</label>
+                <input type="number" min="0" max="30" value="${cfg.esquinasLocal||0}"
+                  onchange="saveDesempateValor('${p.id}','esquinasLocal',this.value)"
+                  style="width:52px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+                <label style="font-size:11px;color:var(--muted);white-space:nowrap;">Visitante:</label>
+                <input type="number" min="0" max="30" value="${cfg.esquinasVisitante||0}"
+                  onchange="saveDesempateValor('${p.id}','esquinasVisitante',this.value)"
+                  style="width:52px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+              </div>` : ''}
             </div>
           </div>
         </div>`;
