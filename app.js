@@ -181,6 +181,14 @@ async function saveCierreGlobal() {
   renderPartidos();
 }
 
+async function toggleWhatsApp() {
+  configGlobal.waDeshabilitado = !configGlobal.waDeshabilitado;
+  await db.collection('config').doc('global').set(configGlobal, {merge:true});
+  const estado = configGlobal.waDeshabilitado ? 'deshabilitado' : 'habilitado';
+  toast('📱 WhatsApp ' + estado);
+  loadCierreGlobalUI();
+}
+
 async function saveConfigGeneral() {
   const oa = document.getElementById('ocultar-apuestas')?.checked || false;
   configGlobal.ocultarApuestas = oa;
@@ -366,8 +374,10 @@ async function doRegistro() {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     const rol  = email === ADMIN_EMAIL ? "admin" : "user";
     // Guardar perfil en Firestore
+    // Si viene de invitación, agregar connotación al nombre
+    const nombreFinal = invitacionData && invitacionData.uid ? nom + ' (invitado)' : nom;
     const perfil = {
-      nombre: nom, celular: cel, email: email,
+      nombre: nombreFinal, celular: cel, email: email,
       rol: rol, creado: firebase.firestore.FieldValue.serverTimestamp()
     };
     // Agregar datos de quien invitó si existe
@@ -966,9 +976,14 @@ function loadCierreGlobalUI() {
   const cg = document.getElementById('cierre-global-grupos');
   const ce = document.getElementById('cierre-global-elim');
   const oa = document.getElementById('ocultar-apuestas');
+  const wa = document.getElementById('toggle-wa');
   if (cg && configGlobal.cierreGrupos) cg.value = configGlobal.cierreGrupos;
   if (ce && configGlobal.cierreElim)   ce.value = configGlobal.cierreElim;
   if (oa) oa.checked = !!configGlobal.ocultarApuestas;
+  if (wa) {
+    wa.checked = !configGlobal.waDeshabilitado;
+    wa.nextElementSibling && (wa.nextElementSibling.textContent = configGlobal.waDeshabilitado ? 'WhatsApp deshabilitado' : 'WhatsApp habilitado');
+  }
 }
 
 function renderConfigPartidos() {
@@ -1111,6 +1126,7 @@ async function eliminarUsuario(uid, nombre) {
 }
 
 function enviarWhatsApp(celular, nombre) {
+  if (configGlobal.waDeshabilitado) { toast('📵 WhatsApp deshabilitado por el administrador'); return; }
   const msg = encodeURIComponent(
     'Hola ' + nombre + ' \uD83D\uDC4B\n\n' +
     '\u00A1Te recordamos que a\u00FAn no has registrado tus apuestas en la Polla Mundialista 2026! \u26BD\uD83C\uDFC6\n\n' +
@@ -1490,6 +1506,15 @@ async function marcarInvitacionUsada(token) {
 // GENERAR LINKS DE INVITACION (ADMIN)
 // ============================================================
 async function generarLinkInvitacion(correoDestino, nombreDestino) {
+  // Verificar si el usuario ya invitó (máximo 1 invitación por usuario no-admin)
+  if (currentUser.rol !== 'admin') {
+    const snap = await db.collection('invitaciones')
+      .where('creadoPor', '==', currentUser.uid).limit(1).get();
+    if (!snap.empty) {
+      toast('⚠️ Solo puedes enviar una invitación');
+      return null;
+    }
+  }
   const token  = 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2,8);
   const base   = window.location.origin + window.location.pathname;
   const ref    = btoa(currentUser.uid + '|' + currentUser.nombre + '|' + token);
@@ -1611,6 +1636,7 @@ async function enviarInvitacionEmail() {
 }
 
 async function enviarInvitacionWA() {
+  if (configGlobal.waDeshabilitado) { toast('📵 WhatsApp deshabilitado por el administrador'); return; }
   const nombre = document.getElementById('invitar-nombre')?.value.trim() || '';
   const email  = document.getElementById('invitar-email')?.value.trim()  || '';
   const tel    = document.getElementById('invitar-tel')?.value.trim()    || '';
@@ -1718,6 +1744,7 @@ const TEXTOS_DEFAULT = {
   pts_titulo:       'Sistema de puntuación:',
   // Invitar
   btn_invitar:      '💌 Invitar',
+  toast_apuesta_ok: '✓ Desafío registrado',
 };
 
 let textos = {...TEXTOS_DEFAULT};
@@ -1809,6 +1836,7 @@ function renderTextos() {
     { titulo: '📄 Títulos de secciones', keys: ['sec_nueva_titulo','sec_partidos_titulo','sec_resultados_titulo','sec_tabla_titulo'] },
     { titulo: '📊 Estadísticas', keys: ['stat_apuestas','stat_participantes','stat_partidos'] },
     { titulo: '🔘 Botones', keys: ['btn_registrar','btn_sync','btn_invitar','btn_exportcsv','btn_exportxlsx'] },
+    { titulo: '💬 Mensajes', keys: ['toast_apuesta_ok'] },
     { titulo: '🔐 Autenticación', keys: ['auth_login_titulo','auth_reg_titulo','auth_btn_login','auth_btn_reg'] },
   ];
 
