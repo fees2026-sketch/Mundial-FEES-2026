@@ -97,6 +97,8 @@ const CRITERIOS_DEFAULT = [
   {id:"ganador_correcto",nombre:"Ganador correcto",  desc:"Acertó quién gana",      icon:"✅",pts:1,fijo:true},
   {id:"empate_correcto", nombre:"Empate acertado",   desc:"Predijo el empate",      icon:"🤝",pts:1,fijo:true},
   {id:"campeon",         nombre:"Campeón acertado",  desc:"Acertó el campeón",      icon:"🏆",pts:5,fijo:true},
+  {id:"subcampeon",      nombre:"Subcampeón acertado",desc:"Acertó el subcampeón",  icon:"🥈",pts:3,fijo:true},
+  {id:"tercer_puesto",   nombre:"3er puesto acertado",desc:"Acertó el tercer puesto",icon:"🥉",pts:2,fijo:true},
 ];
 let criterios = CRITERIOS_DEFAULT.map(c=>({...c}));
 
@@ -445,10 +447,20 @@ function showTab(id, btn) {
 
 function updateTipo() {
   const t = document.getElementById("inp-tipo").value;
-  document.getElementById("sec-partido").style.display = t==="campeon"?"none":"block";
-  document.getElementById("sec-campeon").style.display = t==="campeon"?"block":"none";
-  document.getElementById("sec-goles").style.display   = t==="grupo"  ?"block":"none";
-  document.getElementById("wrap-grupo").style.display  = t==="campeon"?"none" :"block";
+  const esFinal = t==="campeon"||t==="subcampeon"||t==="tercer_puesto";
+  document.getElementById("sec-partido").style.display = esFinal?"none":"block";
+  document.getElementById("sec-campeon").style.display = esFinal?"block":"none";
+  document.getElementById("sec-goles").style.display   = t==="grupo"?"block":"none";
+  document.getElementById("wrap-grupo").style.display  = esFinal?"none":"block";
+  // Update label in campeon input
+  const lbl = document.getElementById("lbl-campeon");
+  if (lbl) {
+    lbl.textContent = t==="campeon" ? "Equipo campeón" : t==="subcampeon" ? "Equipo subcampeón" : "Equipo tercer puesto";
+  }
+  const inp = document.getElementById("inp-campeon");
+  if (inp) {
+    inp.placeholder = t==="campeon" ? "Ej: Argentina" : t==="subcampeon" ? "Ej: Francia" : "Ej: Brasil";
+  }
 }
 
 function autoFill() {
@@ -527,10 +539,14 @@ async function registrar() {
     ts: new Date().toLocaleString("es-CO"),
     creado: firebase.firestore.FieldValue.serverTimestamp()
   };
-  if (tipo === "campeon") {
+  if (tipo === "campeon" || tipo === "subcampeon" || tipo === "tercer_puesto") {
+    const label = tipo === "campeon" ? "campeón" : tipo === "subcampeon" ? "subcampeón" : "tercer puesto";
     const c = document.getElementById("inp-campeon").value.trim();
-    if (!c) { toast("⚠ Ingresa el equipo campeón"); return; }
-    a.campeon = c;
+    if (!c) { toast("⚠ Ingresa el equipo " + label); return; }
+    a.equipoElegido = c;
+    if (tipo === "campeon")      a.campeon     = c;
+    if (tipo === "subcampeon")   a.subcampeon  = c;
+    if (tipo === "tercer_puesto") a.tercerPuesto = c;
   } else {
     const local     = document.getElementById("inp-local").value.trim();
     const visitante = document.getElementById("inp-visitante").value.trim();
@@ -572,7 +588,22 @@ async function registrar() {
 
 // PUNTOS
 function calcPuntos(a) {
-  if (a.tipo==="campeon") return 0;
+  // Campeón, subcampeón, tercer puesto — se calculan contra resultados especiales
+  if (a.tipo==="campeon") {
+    const r = resultados["campeon"];
+    if (!r || !a.campeon) return 0;
+    return a.campeon === r.equipo ? getPts("campeon") : 0;
+  }
+  if (a.tipo==="subcampeon") {
+    const r = resultados["subcampeon"];
+    if (!r || !a.subcampeon) return 0;
+    return a.subcampeon === r.equipo ? getPts("subcampeon") : 0;
+  }
+  if (a.tipo==="tercer_puesto") {
+    const r = resultados["tercer_puesto"];
+    if (!r || !a.tercerPuesto) return 0;
+    return a.tercerPuesto === r.equipo ? getPts("tercer_puesto") : 0;
+  }
   if (!a.partidoId || !resultados[a.partidoId]) return 0;
   const r  = resultados[a.partidoId];
   const gl = Number(a.golLocal)||0, gv = Number(a.golVisitante)||0;
@@ -638,7 +669,9 @@ function renderApuestas() {
     const badge = `<span class="badge badge-${a.tipo==="campeon"?"campeon":a.tipo}">${a.tipo==="campeon"?"🏆 Campeón":a.tipo==="grupo"?"Grupos":"Eliminatoria"}</span>`;
     const ptsStr = pts>0 ? `<span class="pts-badge">+${pts} pts</span>` : "";
     let detalle="", score="";
-    if(a.tipo==="campeon") detalle="🏆 "+a.campeon;
+    if(a.tipo==="campeon")       detalle="🏆 Campeón: "+(a.campeon||a.equipoElegido||"");
+    else if(a.tipo==="subcampeon")   detalle="🥈 Subcampeón: "+(a.subcampeon||a.equipoElegido||"");
+    else if(a.tipo==="tercer_puesto")detalle="🥉 3er Puesto: "+(a.tercerPuesto||a.equipoElegido||"");
     else { detalle=a.local+" vs "+a.visitante+(a.grupo?" ("+a.grupo+")":""); if(a.tipo==="grupo") score=a.golLocal+"–"+a.golVisitante; }
     // Mostrar desempate solo para las propias apuestas
     const esMia = a.uid === currentUser.uid;
@@ -678,7 +711,43 @@ function renderResultados() {
   const pIds  = [...new Set(apuestas.filter(a=>a.partidoId).map(a=>a.partidoId))];
   const lista = PARTIDOS.filter(p=>pIds.includes(p.id)||resultados[p.id]);
   const container = document.getElementById("lista-resultados");
-  if (!lista.length) { container.innerHTML='<div class="empty"><div class="empty-ico">⏳</div>Registra apuestas para ver partidos aquí</div>'; return; }
+
+  // Sección especial para campeón, subcampeón y tercer puesto
+  const tieneEspeciales = apuestas.some(a=>['campeon','subcampeon','tercer_puesto'].includes(a.tipo));
+  let especialesHtml = '';
+  if (tieneEspeciales) {
+    const especiales = [
+      {id:'campeon',      label:'Campeón',      icon:'🏆', field:'campeon'},
+      {id:'subcampeon',   label:'Subcampeón',   icon:'🥈', field:'subcampeon'},
+      {id:'tercer_puesto',label:'Tercer puesto', icon:'🥉', field:'tercerPuesto'},
+    ];
+    especialesHtml = `<div class="card" style="margin-bottom:14px;">
+      <div class="card-title" style="margin-bottom:12px;">🏆 Resultados finales del mundial</div>
+      ${especiales.map(e => {
+        const r = resultados[e.id];
+        const n = apuestas.filter(a=>a.tipo===e.id).length;
+        if (!n) return '';
+        if (r) return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:20px;">${e.icon}</span>
+          <div style="flex:1;"><div style="font-weight:600;font-size:14px;">${e.label}</div>
+          <div style="font-size:13px;color:var(--verde);font-weight:600;">${r.equipo}</div>
+          <div style="font-size:11px;color:var(--muted);">${n} apuesta(s)</div></div>
+          <button class="btn btn-outline btn-sm" onclick="borrarResultadoEspecial('${e.id}')">✕</button>
+        </div>`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:20px;">${e.icon}</span>
+          <div style="flex:1;font-weight:600;">${e.label}</div>
+          <input type="text" id="res-${e.id}" placeholder="Equipo ganador" list="lista-equipos"
+            style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"/>
+          <button class="btn btn-primary btn-sm" onclick="guardarResultadoEspecial('${e.id}')">Guardar</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  if (!lista.length && !especialesHtml) { container.innerHTML='<div class="empty"><div class="empty-ico">⏳</div>Registra apuestas para ver partidos aquí</div>'; return; }
+  container.innerHTML = especialesHtml;
+  if (!lista.length) return;
   const fechas = [...new Set(lista.map(p=>p.fecha))];
   container.innerHTML = fechas.map(f => {
     const ps = lista.filter(p=>p.fecha===f);
@@ -1786,6 +1855,27 @@ function calcPuntosPorFase(apuestasPersona) {
     }
   });
   return fases;
+}
+
+
+async function guardarResultadoEspecial(tipo) {
+  const equipo = document.getElementById('res-'+tipo)?.value.trim();
+  if (!equipo) { toast('⚠ Ingresa el equipo'); return; }
+  resultados[tipo] = { equipo, ts: firebase.firestore.FieldValue.serverTimestamp() };
+  await db.collection('resultados').doc(tipo).set(resultados[tipo]);
+  // Recalcular puntos
+  const afectadas = apuestas.filter(a=>a.tipo===tipo);
+  const batch = db.batch();
+  afectadas.forEach(a => batch.update(db.collection('apuestas').doc(a.id), {puntos: calcPuntos(a)}));
+  await batch.commit();
+  toast('✓ Resultado guardado: ' + equipo);
+  renderResultados(); renderApuestas(); renderTabla();
+}
+
+async function borrarResultadoEspecial(tipo) {
+  delete resultados[tipo];
+  await db.collection('resultados').doc(tipo).delete();
+  renderResultados(); renderApuestas(); renderTabla();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
