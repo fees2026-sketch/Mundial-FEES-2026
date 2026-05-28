@@ -573,7 +573,7 @@ async function registrar() {
   }
   try {
     await db.collection("apuestas").add(a);
-    toast("✓ Apuesta registrada");
+    toast(textos.toast_apuesta_ok || '✓ Desafío registrado');
     document.getElementById("inp-partido").value  = "";
     document.getElementById("inp-local").value    = "";
     document.getElementById("inp-visitante").value= "";
