@@ -218,18 +218,50 @@ auth.onAuthStateChanged(async user => {
   }
 });
 
+let unsubUserProfile = null;
+
 function showApp() {
   document.getElementById("auth-overlay").style.display  = "none";
   document.getElementById("main-header").style.display   = "";
   document.getElementById("main-nav").style.display      = "";
   document.getElementById("main-content").style.display  = "";
+  actualizarHeaderUsuario();
+  renderPtsInfo();
+  suscribirApuestas();
+  // Escuchar cambios de rol en tiempo real
+  if (unsubUserProfile) unsubUserProfile();
+  unsubUserProfile = db.collection("usuarios").doc(currentUser.uid)
+    .onSnapshot(snap => {
+      if (!snap.exists) return;
+      const data = snap.data();
+      const rolAnterior = currentUser.rol;
+      currentUser.rol    = data.rol || "user";
+      currentUser.nombre = data.nombre || currentUser.nombre;
+      actualizarHeaderUsuario();
+      // Si cambió el rol, actualizar navegación y suscripciones
+      if (rolAnterior !== currentUser.rol) {
+        const navAdmin = document.getElementById("nav-admin");
+        if (currentUser.rol === "admin") {
+          navAdmin.style.display = "";
+          toast("👑 Ahora eres administrador");
+        } else {
+          navAdmin.style.display = "none";
+          toast("👤 Tu rol ha cambiado a participante");
+        }
+        // Resuscribir apuestas con nuevos permisos
+        suscribirApuestas();
+      }
+    });
+}
+
+function actualizarHeaderUsuario() {
   const ini = currentUser.nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
   document.getElementById("hdr-avatar").textContent  = ini;
   document.getElementById("hdr-nombre").textContent  = currentUser.nombre;
   document.getElementById("hdr-rol").textContent     = currentUser.rol==="admin" ? "👑 Administrador" : "👤 Participante";
-  if (currentUser.rol === "admin") document.getElementById("nav-admin").style.display = "";
-  renderPtsInfo();
-  suscribirApuestas();
+  if (currentUser.rol === "admin") {
+    document.getElementById("nav-admin").style.display = "";
+  }
 }
 
 function showAuth() {
@@ -362,6 +394,7 @@ async function doReset() {
 
 async function doLogout() {
   if (!confirm("¿Cerrar sesión?")) return;
+  if (unsubUserProfile) { unsubUserProfile(); unsubUserProfile = null; }
   await auth.signOut();
 }
 
@@ -592,11 +625,23 @@ function renderApuestas() {
     let detalle="", score="";
     if(a.tipo==="campeon") detalle="🏆 "+a.campeon;
     else { detalle=a.local+" vs "+a.visitante+(a.grupo?" ("+a.grupo+")":""); if(a.tipo==="grupo") score=a.golLocal+"–"+a.golVisitante; }
+    // Mostrar desempate solo para las propias apuestas
+    const esMia = a.uid === currentUser.uid;
+    let desempateHtml = '';
+    if (esMia && a.tipo==="grupo") {
+      if (a.tarjetasLocal !== undefined) {
+        desempateHtml += `<span style="font-size:11px;background:#fdf3dc;color:#c8972b;padding:2px 7px;border-radius:8px;margin-right:4px;">🟨 ${a.tarjetasLocal}–${a.tarjetasVisitante}</span>`;
+      }
+      if (a.esquinasLocal !== undefined) {
+        desempateHtml += `<span style="font-size:11px;background:#e8eef7;color:var(--verde);padding:2px 7px;border-radius:8px;">🔄 ${a.esquinasLocal}–${a.esquinasVisitante}</span>`;
+      }
+    }
     return `<div class="apuesta-card">
       <div class="a-avatar">${ini}</div>
       <div class="a-info">
         <div class="a-nombre">${a.nombre} ${badge} ${ptsStr}</div>
         <div class="a-detalle">${detalle}</div>
+        ${desempateHtml ? `<div style="margin-top:4px;">${desempateHtml}</div>` : ''}
         <div style="font-size:11px;color:var(--muted);margin-top:2px;">${a.ts}</div>
       </div>
       ${score?`<div class="a-score">${score}</div>`:""}
@@ -627,10 +672,13 @@ function renderResultados() {
       ${ps.map(p => {
         const r = resultados[p.id];
         const n = apuestas.filter(a=>a.partidoId===p.id).length;
+        const cfg = configPartidos[p.id] || {};
         if(r) return `<div class="res-card">
           <div class="res-match">${p.grupo} · ${p.local} vs ${p.visitante}</div>
           <div class="res-form"><span style="font-weight:600;">${p.local}</span><div class="res-done">${r.local} – ${r.visitante}</div><span style="font-weight:600;">${p.visitante}</span>
           <button class="btn btn-outline btn-sm" onclick="borrarResultado('${p.id}')" style="margin-left:auto;">✕</button></div>
+          ${cfg.tarjetas ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">🟨 Tarjetas: ${r.tarjetasLocal||0}–${r.tarjetasVisitante||0}</div>` : ''}
+          ${cfg.esquinas ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">🔄 Esquinas: ${r.esquinasLocal||0}–${r.esquinasVisitante||0}</div>` : ''}
           <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
         return `<div class="res-card">
           <div class="res-match">${p.grupo} · ${p.local} vs ${p.visitante}</div>
@@ -642,6 +690,18 @@ function renderResultados() {
             <span style="font-weight:600;font-size:13px;">${p.visitante}</span>
             <button class="btn btn-primary btn-sm" onclick="guardarResultado('${p.id}')" style="margin-left:auto;">Guardar</button>
           </div>
+          ${cfg.tarjetas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:600;color:var(--muted);">🟨 Tarjetas:</span>
+            <input type="number" id="r-tl-${p.id}" min="0" max="20" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <span style="font-size:12px;color:var(--muted);">vs</span>
+            <input type="number" id="r-tv-${p.id}" min="0" max="20" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+          </div>` : ''}
+          ${cfg.esquinas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:600;color:var(--muted);">🔄 Esquinas:</span>
+            <input type="number" id="r-el-${p.id}" min="0" max="30" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <span style="font-size:12px;color:var(--muted);">vs</span>
+            <input type="number" id="r-ev-${p.id}" min="0" max="30" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+          </div>` : ''}
           <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
       }).join("")}</div>`;
   }).join("");
@@ -650,9 +710,20 @@ function renderResultados() {
 async function guardarResultado(pid) {
   const l = parseInt(document.getElementById("r-l-"+pid).value)||0;
   const v = parseInt(document.getElementById("r-v-"+pid).value)||0;
-  resultados[pid] = {local:l, visitante:v};
+  const cfg = configPartidos[pid] || {};
+  const res = {local:l, visitante:v, ts: firebase.firestore.FieldValue.serverTimestamp()};
+  // Guardar tarjetas y esquinas si aplica
+  if (cfg.tarjetas) {
+    res.tarjetasLocal    = parseInt(document.getElementById("r-tl-"+pid)?.value)||0;
+    res.tarjetasVisitante= parseInt(document.getElementById("r-tv-"+pid)?.value)||0;
+  }
+  if (cfg.esquinas) {
+    res.esquinasLocal    = parseInt(document.getElementById("r-el-"+pid)?.value)||0;
+    res.esquinasVisitante= parseInt(document.getElementById("r-ev-"+pid)?.value)||0;
+  }
+  resultados[pid] = res;
   // Guardar en Firestore
-  await db.collection("resultados").doc(pid).set({local:l, visitante:v, ts: firebase.firestore.FieldValue.serverTimestamp()});
+  await db.collection("resultados").doc(pid).set(res);
   // Actualizar puntos
   const afectadas = apuestas.filter(a=>a.partidoId===pid);
   const batch = db.batch();
@@ -689,16 +760,30 @@ function renderTabla() {
   if (!personas.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
   const ranking = personas.map(p => {
     const bets = apuestas.filter(a=>a.nombre===p);
-    return {nombre:p, pts:bets.reduce((s,a)=>s+calcPuntos(a),0), count:bets.length, ini:p.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
+    const fases = calcPuntosPorFase(bets);
+    const total = bets.reduce((s,a)=>s+calcPuntos(a),0);
+    return {nombre:p, pts:total, count:bets.length, fases, ini:p.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
   }).sort((a,b)=>b.pts-a.pts||b.count-a.count);
   const colors = ["var(--oro)","#adb5bd","#cd7f32"];
-  container.innerHTML = ranking.map((r,i) => `
-    <div class="rank-row">
+  container.innerHTML = ranking.map((r,i) => {
+    const faseBadges = Object.entries(r.fases)
+      .filter(([,v])=>v>0)
+      .map(([k,v])=>{
+        const labels = {grupos:'Grupos',octavos:'Octavos',cuartos:'Cuartos',semis:'Semis',final:'Final',campeon:'Campeón'};
+        const icons  = {grupos:'⚽',octavos:'🔁',cuartos:'🏅',semis:'🌟',final:'🏆',campeon:'👑'};
+        return `<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">${icons[k]||''} ${labels[k]||k}: <strong>${v}</strong></span>`;
+      }).join('');
+    return `<div class="rank-row" style="flex-wrap:wrap;">
       <div class="rank-pos${i<3?" top":""}">${i+1}</div>
       <div style="width:38px;height:38px;border-radius:50%;background:${colors[i]||"var(--verde)"};color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${r.ini}</div>
-      <div class="rank-name">${i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":""}${r.nombre}<div class="rank-sub">${r.count} apuesta${r.count!==1?"s":""}</div></div>
+      <div class="rank-name" style="flex:1;">
+        ${i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":""}${r.nombre}
+        <div class="rank-sub">${r.count} apuesta${r.count!==1?"s":""}</div>
+        ${faseBadges ? `<div style="margin-top:5px;flex-wrap:wrap;display:flex;gap:3px;">${faseBadges}</div>` : ''}
+      </div>
       <div><div class="rank-pts">${r.pts}</div><div class="pts-lbl">puntos</div></div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 // PUNTUACIÓN CONFIGURABLE
@@ -1656,6 +1741,34 @@ function renderTextos() {
             title="Restablecer">↩</button>
         </div>`).join('')}
     </div>`).join('');
+}
+
+
+// ============================================================
+// PUNTOS POR FASE
+// ============================================================
+function getFase(partidoId) {
+  if (!partidoId) return 'campeon';
+  const grupos = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+  const letra = partidoId[0];
+  if (grupos.includes(letra)) return 'grupos';
+  if (partidoId.startsWith('R16')) return 'octavos';
+  if (partidoId.startsWith('QF'))  return 'cuartos';
+  if (partidoId.startsWith('SF'))  return 'semis';
+  if (partidoId.startsWith('F'))   return 'final';
+  return 'otros';
+}
+
+function calcPuntosPorFase(apuestasPersona) {
+  const fases = { grupos: 0, octavos: 0, cuartos: 0, semis: 0, final: 0, campeon: 0 };
+  apuestasPersona.forEach(a => {
+    const pts = calcPuntos(a);
+    if (pts > 0) {
+      const fase = getFase(a.partidoId);
+      if (fases[fase] !== undefined) fases[fase] += pts;
+    }
+  });
+  return fases;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
