@@ -98,7 +98,22 @@ const CRITERIOS_DEFAULT = [
   {id:"empate_correcto", nombre:"Empate acertado",   desc:"Predijo el empate",      icon:"🤝",pts:1,fijo:true},
   {id:"campeon",         nombre:"Campeón acertado",  desc:"Acertó el campeón",      icon:"🏆",pts:5,fijo:true},
 ];
-let criterios = JSON.parse(localStorage.getItem("polla_criterios")||"null") || CRITERIOS_DEFAULT.map(c=>({...c}));
+let criterios = CRITERIOS_DEFAULT.map(c=>({...c}));
+
+async function saveCriterios() {
+  await db.collection('config').doc('criterios').set({ lista: criterios });
+  renderPtsInfo(); renderApuestas(); renderTabla();
+}
+
+async function cargarCriterios() {
+  try {
+    const snap = await db.collection('config').doc('criterios').get();
+    if (snap.exists && snap.data().lista && snap.data().lista.length > 0) {
+      criterios = snap.data().lista;
+    }
+  } catch(e) { console.error('Error cargando criterios:', e); }
+  renderPtsInfo();
+}
 
 // CONFIG DE PARTIDOS (guardado en Firestore)
 let configPartidos = {}; // { partidoId: { cierreISO, tarjetas, esquinas } }
@@ -192,7 +207,7 @@ async function saveDesempateValor(pid, campo, value) {
   await db.collection("config").doc("partidos").set(configPartidos, {merge:false});
   toast('✓ Valor guardado');
 }
-function saveCriterios(){localStorage.setItem("polla_criterios",JSON.stringify(criterios));renderPtsInfo();renderApuestas();renderTabla();}
+
 function getPts(id){return (criterios.find(c=>c.id===id)||{pts:0}).pts;}
 
 // AUTH OBSERVER
@@ -746,7 +761,8 @@ async function cargarResultados() {
   const snap = await db.collection("resultados").get();
   snap.forEach(doc => { resultados[doc.id] = doc.data(); });
   await cargarConfigPartidos();
-  await cargarTextos(); // carga textos y slogan
+  await cargarTextos();
+  await cargarCriterios();
   renderPartidos(); renderResultados();
 }
 
@@ -831,25 +847,26 @@ function renderCriterios() {
       <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;">${cr.nombre}</div>
     </div>`).join("")}</div>`;
 }
-function agregarCriterio() {
+async function agregarCriterio() {
   const nombre = document.getElementById("new-crit-nombre").value.trim();
   const pts    = parseInt(document.getElementById("new-crit-pts").value)||1;
   if(!nombre){toast("⚠ Escribe el nombre");return;}
   criterios.push({id:"custom_"+Date.now(),nombre,desc:"Criterio personalizado",icon:"⭐",pts,fijo:false});
-  saveCriterios();renderCriterios();
+  await saveCriterios();
+  renderCriterios();
   document.getElementById("new-crit-nombre").value="";
   document.getElementById("new-crit-pts").value="2";
   toast("✓ Criterio agregado");
 }
-function eliminarCriterio(i) {
+async function eliminarCriterio(i) {
   const cr = criterios[i];
   if (cr.fijo) {
     if (!confirm('Restablecer "' + cr.nombre + '" a los valores por defecto?')) return;
     const def = CRITERIOS_DEFAULT.find(d=>d.id===cr.id);
-    if (def) { criterios[i] = {...def}; saveCriterios(); renderCriterios(); toast('Criterio restablecido'); }
+    if (def) { criterios[i] = {...def}; await saveCriterios(); renderCriterios(); toast('Criterio restablecido'); }
   } else {
     if (!confirm('Eliminar el criterio "' + cr.nombre + '"?')) return;
-    criterios.splice(i, 1); saveCriterios(); renderCriterios(); toast('Criterio eliminado');
+    criterios.splice(i, 1); await saveCriterios(); renderCriterios(); toast('Criterio eliminado');
   }
 }
 
