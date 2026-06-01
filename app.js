@@ -98,7 +98,9 @@ const CRITERIOS_DEFAULT = [
   {id:"empate_correcto", nombre:"Empate acertado",   desc:"Predijo el empate",      icon:"🤝",pts:1,fijo:true},
   {id:"campeon",         nombre:"Campeón acertado",  desc:"Acertó el campeón",      icon:"🏆",pts:5,fijo:true},
   {id:"subcampeon",      nombre:"Subcampeón acertado",desc:"Acertó el subcampeón",  icon:"🥈",pts:3,fijo:true},
-  {id:"tercer_puesto",   nombre:"3er puesto acertado",desc:"Acertó el tercer puesto",icon:"🥉",pts:2,fijo:true},
+  {id:"tercer_puesto",   nombre:"3er puesto acertado",  desc:"Acertó el tercer puesto",       icon:"🥉",pts:2,fijo:true},
+  {id:"goleador",        nombre:"Goleador fase grupos",  desc:"Acertó el goleador de la fase", icon:"⚽",pts:4,fijo:true},
+  {id:"valla",           nombre:"Valla menos vencida",   desc:"Acertó la valla menos vencida", icon:"🧤",pts:4,fijo:true},
 ];
 let criterios = CRITERIOS_DEFAULT.map(c=>({...c}));
 
@@ -230,11 +232,12 @@ auth.onAuthStateChanged(async user => {
     const snap = await db.collection("usuarios").doc(user.uid).get();
     const perfil = snap.exists ? snap.data() : {};
     currentUser = {
-      uid:    user.uid,
-      email:  user.email,
-      nombre: perfil.nombre || user.email,
-      celular:perfil.celular || "",
-      rol:    perfil.rol || "user"
+      uid:         user.uid,
+      email:       user.email,
+      nombre:      perfil.nombre || user.email,
+      celular:     perfil.celular || "",
+      rol:         perfil.rol || "user",
+      invitadoPor: perfil.invitadoPor || null
     };
     showApp();
   } else {
@@ -253,6 +256,12 @@ function showApp() {
   actualizarHeaderUsuario();
   renderPtsInfo();
   suscribirApuestas();
+  // Ocultar botón invitar si el usuario es invitado
+  const btnInvitar = document.getElementById('btn-invitar');
+  if (btnInvitar) {
+    const esInvitado = currentUser.nombre.includes('(invitado)') || currentUser.invitadoPor;
+    btnInvitar.style.display = esInvitado ? 'none' : '';
+  }
   // Escuchar cambios de rol en tiempo real
   if (unsubUserProfile) unsubUserProfile();
   unsubUserProfile = db.collection("usuarios").doc(currentUser.uid)
@@ -260,9 +269,16 @@ function showApp() {
       if (!snap.exists) return;
       const data = snap.data();
       const rolAnterior = currentUser.rol;
-      currentUser.rol    = data.rol || "user";
-      currentUser.nombre = data.nombre || currentUser.nombre;
+      currentUser.rol         = data.rol || "user";
+      currentUser.nombre      = data.nombre || currentUser.nombre;
+      currentUser.invitadoPor = data.invitadoPor || null;
       actualizarHeaderUsuario();
+      // Actualizar visibilidad del botón invitar
+      const btnInvitar = document.getElementById('btn-invitar');
+      if (btnInvitar) {
+        const esInvitado = currentUser.nombre.includes('(invitado)') || currentUser.invitadoPor;
+        btnInvitar.style.display = esInvitado ? 'none' : '';
+      }
       // Si cambió el rol, actualizar navegación y suscripciones
       if (rolAnterior !== currentUser.rol) {
         const navAdmin = document.getElementById("nav-admin");
@@ -457,7 +473,7 @@ function showTab(id, btn) {
 
 function updateTipo() {
   const t = document.getElementById("inp-tipo").value;
-  const esFinal = t==="campeon"||t==="subcampeon"||t==="tercer_puesto";
+  const esFinal = t==="campeon"||t==="subcampeon"||t==="tercer_puesto"||t==="goleador"||t==="valla";
   document.getElementById("sec-partido").style.display = esFinal?"none":"block";
   document.getElementById("sec-campeon").style.display = esFinal?"block":"none";
   document.getElementById("sec-goles").style.display   = t==="grupo"?"block":"none";
@@ -465,11 +481,25 @@ function updateTipo() {
   // Update label in campeon input
   const lbl = document.getElementById("lbl-campeon");
   if (lbl) {
-    lbl.textContent = t==="campeon" ? "Equipo campeón" : t==="subcampeon" ? "Equipo subcampeón" : "Equipo tercer puesto";
+    const lblMap = {
+      campeon:       "Equipo campeón",
+      subcampeon:    "Equipo subcampeón",
+      tercer_puesto: "Equipo tercer puesto",
+      goleador:      "Jugador goleador",
+      valla:         "Equipo valla menos vencida"
+    };
+    lbl.textContent = lblMap[t] || "Selección";
   }
   const inp = document.getElementById("inp-campeon");
   if (inp) {
-    inp.placeholder = t==="campeon" ? "Ej: Argentina" : t==="subcampeon" ? "Ej: Francia" : "Ej: Brasil";
+    const phMap = {
+      campeon:       "Ej: Argentina",
+      subcampeon:    "Ej: Francia",
+      tercer_puesto: "Ej: Brasil",
+      goleador:      "Ej: Kylian Mbappé",
+      valla:         "Ej: Francia"
+    };
+    inp.placeholder = phMap[t] || "Escribe aquí";
   }
 }
 
@@ -533,6 +563,11 @@ function renderDesempateApuesta(pid, local, visitante) {
 // REGISTRAR APUESTA
 async function registrar() {
   const tipo = document.getElementById("inp-tipo").value;
+  // Verificar si el usuario está eliminado
+  if (currentUser.eliminado) {
+    toast('⛔ Fuiste eliminado en la fase de grupos');
+    return;
+  }
   // Verificar si el partido está abierto
   if (tipo !== 'campeon') {
     const pid = document.getElementById("inp-partido").value;
@@ -549,14 +584,20 @@ async function registrar() {
     ts: new Date().toLocaleString("es-CO"),
     creado: firebase.firestore.FieldValue.serverTimestamp()
   };
-  if (tipo === "campeon" || tipo === "subcampeon" || tipo === "tercer_puesto") {
-    const label = tipo === "campeon" ? "campeón" : tipo === "subcampeon" ? "subcampeón" : "tercer puesto";
+  if (["campeon","subcampeon","tercer_puesto","goleador","valla"].includes(tipo)) {
+    if ((tipo==="goleador"||tipo==="valla") && !estaAbiertoEspecial(tipo)) {
+      toast("⛔ Las apuestas para " + tipo + " están cerradas");
+      return;
+    }
+    const labelMap = {campeon:"campeón",subcampeon:"subcampeón",tercer_puesto:"tercer puesto",goleador:"goleador",valla:"valla menos vencida"};
     const c = document.getElementById("inp-campeon").value.trim();
-    if (!c) { toast("⚠ Ingresa el equipo " + label); return; }
+    if (!c) { toast("⚠ Ingresa el " + (labelMap[tipo]||tipo)); return; }
     a.equipoElegido = c;
-    if (tipo === "campeon")      a.campeon     = c;
-    if (tipo === "subcampeon")   a.subcampeon  = c;
+    if (tipo === "campeon")       a.campeon      = c;
+    if (tipo === "subcampeon")    a.subcampeon   = c;
     if (tipo === "tercer_puesto") a.tercerPuesto = c;
+    if (tipo === "goleador")      a.goleador     = c;
+    if (tipo === "valla")         a.valla        = c;
   } else {
     const local     = document.getElementById("inp-local").value.trim();
     const visitante = document.getElementById("inp-visitante").value.trim();
@@ -613,6 +654,16 @@ function calcPuntos(a) {
     const r = resultados["tercer_puesto"];
     if (!r || !a.tercerPuesto) return 0;
     return a.tercerPuesto === r.equipo ? getPts("tercer_puesto") : 0;
+  }
+  if (a.tipo==="goleador") {
+    const r = resultados["goleador"];
+    if (!r || !a.goleador) return 0;
+    return a.goleador.toLowerCase() === r.jugador.toLowerCase() ? getPts("goleador") : 0;
+  }
+  if (a.tipo==="valla") {
+    const r = resultados["valla"];
+    if (!r || !a.valla) return 0;
+    return a.valla.toLowerCase() === r.equipo.toLowerCase() ? getPts("valla") : 0;
   }
   if (!a.partidoId || !resultados[a.partidoId]) return 0;
   const r  = resultados[a.partidoId];
@@ -682,6 +733,8 @@ function renderApuestas() {
     if(a.tipo==="campeon")       detalle="🏆 Campeón: "+(a.campeon||a.equipoElegido||"");
     else if(a.tipo==="subcampeon")   detalle="🥈 Subcampeón: "+(a.subcampeon||a.equipoElegido||"");
     else if(a.tipo==="tercer_puesto")detalle="🥉 3er Puesto: "+(a.tercerPuesto||a.equipoElegido||"");
+    else if(a.tipo==="goleador")      detalle="⚽ Goleador: "+(a.goleador||a.equipoElegido||"");
+    else if(a.tipo==="valla")         detalle="🧤 Valla: "+(a.valla||a.equipoElegido||"");
     else { detalle=a.local+" vs "+a.visitante+(a.grupo?" ("+a.grupo+")":""); if(a.tipo==="grupo") score=a.golLocal+"–"+a.golVisitante; }
     // Mostrar desempate solo para las propias apuestas
     const esMia = a.uid === currentUser.uid;
@@ -727,9 +780,11 @@ function renderResultados() {
   let especialesHtml = '';
   if (tieneEspeciales) {
     const especiales = [
-      {id:'campeon',      label:'Campeón',      icon:'🏆', field:'campeon'},
-      {id:'subcampeon',   label:'Subcampeón',   icon:'🥈', field:'subcampeon'},
-      {id:'tercer_puesto',label:'Tercer puesto', icon:'🥉', field:'tercerPuesto'},
+      {id:'campeon',      label:'Campeón',            icon:'🏆', field:'campeon'},
+      {id:'subcampeon',   label:'Subcampeón',          icon:'🥈', field:'subcampeon'},
+      {id:'tercer_puesto',label:'Tercer puesto',       icon:'🥉', field:'tercerPuesto'},
+      {id:'goleador',     label:'Goleador fase grupos',icon:'⚽', field:'goleador', esJugador:true},
+      {id:'valla',        label:'Valla menos vencida', icon:'🧤', field:'valla'},
     ];
     especialesHtml = `<div class="card" style="margin-bottom:14px;">
       <div class="card-title" style="margin-bottom:12px;">🏆 Resultados finales del mundial</div>
@@ -842,6 +897,8 @@ async function cargarResultados() {
   await cargarConfigPartidos();
   await cargarTextos();
   await cargarCriterios();
+  await verificarEliminacion();
+  await checkEliminadoActual();
   renderPartidos(); renderResultados();
 }
 
@@ -977,12 +1034,33 @@ function loadCierreGlobalUI() {
   const ce = document.getElementById('cierre-global-elim');
   const oa = document.getElementById('ocultar-apuestas');
   const wa = document.getElementById('toggle-wa');
-  if (cg && configGlobal.cierreGrupos) cg.value = configGlobal.cierreGrupos;
-  if (ce && configGlobal.cierreElim)   ce.value = configGlobal.cierreElim;
+  const cgg = document.getElementById('cierre-goleador');
+  const cv  = document.getElementById('cierre-valla');
+  if (cg && configGlobal.cierreGrupos)  cg.value  = configGlobal.cierreGrupos;
+  if (ce && configGlobal.cierreElim)    ce.value  = configGlobal.cierreElim;
+  if (cgg && configGlobal.cierreGoleador) cgg.value = configGlobal.cierreGoleador;
+  if (cv  && configGlobal.cierreValla)    cv.value  = configGlobal.cierreValla;
   if (oa) oa.checked = !!configGlobal.ocultarApuestas;
   if (wa) {
     wa.checked = !configGlobal.waDeshabilitado;
     wa.nextElementSibling && (wa.nextElementSibling.textContent = configGlobal.waDeshabilitado ? 'WhatsApp deshabilitado' : 'WhatsApp habilitado');
+  }
+  // Mostrar estado de eliminación
+  const estadoEl = document.getElementById('estado-eliminacion');
+  if (estadoEl) {
+    if (configGlobal.eliminacionEjecutada) {
+      const n = (configGlobal.eliminados || []).length;
+      estadoEl.innerHTML = `<span style="background:#fee2e2;color:#c0392b;padding:4px 10px;border-radius:8px;font-size:12px;">⛔ ${n} usuario(s) eliminado(s)</span>`;
+    } else if (configGlobal.cierreGrupos && new Date(configGlobal.cierreGrupos) < new Date()) {
+      estadoEl.innerHTML = `<span style="background:#fdf3dc;color:#c8972b;padding:4px 10px;border-radius:8px;font-size:12px;">⏳ Procesando eliminación...</span>`;
+    } else {
+      estadoEl.innerHTML = `<span style="background:#d4edd9;color:#1a6b3c;padding:4px 10px;border-radius:8px;font-size:12px;">✅ Fase de grupos en curso</span>`;
+    }
+  }
+  // Mostrar estado reinicio
+  if (configGlobal.reinicioOctavos) {
+    const btnReinicio = document.querySelector('[onclick="reiniciarPuntosOctavos()"]');
+    if (btnReinicio) { btnReinicio.disabled = true; btnReinicio.textContent = '✓ Puntos reiniciados'; }
   }
 }
 
@@ -1887,10 +1965,14 @@ function calcPuntosPorFase(apuestasPersona) {
 
 
 async function guardarResultadoEspecial(tipo) {
-  const equipo = document.getElementById('res-'+tipo)?.value.trim();
-  if (!equipo) { toast('⚠ Ingresa el equipo'); return; }
-  resultados[tipo] = { equipo, ts: firebase.firestore.FieldValue.serverTimestamp() };
-  await db.collection('resultados').doc(tipo).set(resultados[tipo]);
+  const val = document.getElementById('res-'+tipo)?.value.trim();
+  if (!val) { toast('⚠ Ingresa el valor'); return; }
+  // Goleador guarda como jugador, los demás como equipo
+  const data = tipo === 'goleador'
+    ? { jugador: val, ts: firebase.firestore.FieldValue.serverTimestamp() }
+    : { equipo: val,  ts: firebase.firestore.FieldValue.serverTimestamp() };
+  resultados[tipo] = data;
+  await db.collection('resultados').doc(tipo).set(data);
   // Recalcular puntos
   const afectadas = apuestas.filter(a=>a.tipo===tipo);
   const batch = db.batch();
@@ -1904,6 +1986,130 @@ async function borrarResultadoEspecial(tipo) {
   delete resultados[tipo];
   await db.collection('resultados').doc(tipo).delete();
   renderResultados(); renderApuestas(); renderTabla();
+}
+
+
+// ============================================================
+// CIERRE GOLEADOR Y VALLA (FEES)
+// ============================================================
+async function saveCierreGoleadorValla() {
+  const cg = document.getElementById('cierre-goleador')?.value || '';
+  const cv = document.getElementById('cierre-valla')?.value    || '';
+  configGlobal.cierreGoleador = cg;
+  configGlobal.cierreValla    = cv;
+  await db.collection('config').doc('global').set(configGlobal, {merge:true});
+  toast('✓ Cierre guardado');
+}
+
+function estaAbiertoEspecial(tipo) {
+  const ahora = new Date();
+  if (tipo === 'goleador' && configGlobal.cierreGoleador)
+    return new Date(configGlobal.cierreGoleador) > ahora;
+  if (tipo === 'valla' && configGlobal.cierreValla)
+    return new Date(configGlobal.cierreValla) > ahora;
+  return true;
+}
+
+
+// ============================================================
+// ELIMINACION 30% Y REINICIO DE PUNTOS (FEES)
+// ============================================================
+
+async function verificarEliminacion() {
+  // Si ya se ejecutó la eliminación, no volver a ejecutar
+  if (configGlobal.eliminacionEjecutada) return;
+
+  // Verificar si la fase de grupos cerró
+  const cierreGrupos = configGlobal.cierreGrupos;
+  if (!cierreGrupos) return;
+  if (new Date(cierreGrupos) > new Date()) return;
+
+  // Calcular ranking actual
+  const snapUsers = await db.collection('usuarios').get();
+  const snapApuestas = await db.collection('apuestas').get();
+  const todasApuestas = snapApuestas.docs.map(d=>({id:d.id,...d.data()}));
+
+  const usuarios = snapUsers.docs.map(d=>({uid:d.id,...d.data()}))
+    .filter(u => u.rol !== 'admin');
+
+  const ranking = usuarios.map(u => {
+    const bets = todasApuestas.filter(a => a.uid === u.uid);
+    const pts  = bets.reduce((s,a) => s + (calcPuntosGrupos(a)||0), 0);
+    return { uid: u.uid, nombre: u.nombre, pts };
+  }).sort((a,b) => b.pts - a.pts);
+
+  // Eliminar el 30% con menor puntaje
+  const totalEliminar = Math.floor(ranking.length * 0.30);
+  if (totalEliminar === 0) return;
+
+  const eliminados = ranking.slice(ranking.length - totalEliminar);
+  const batch = db.batch();
+  eliminados.forEach(u => {
+    batch.update(db.collection('usuarios').doc(u.uid), {
+      eliminado: true,
+      eliminadoFase: 'grupos',
+      ptsGrupos: u.pts
+    });
+  });
+  // Marcar eliminación como ejecutada
+  await batch.commit();
+  await db.collection('config').doc('global').set(
+    { eliminacionEjecutada: true, eliminados: eliminados.map(u=>u.uid) },
+    { merge: true }
+  );
+  console.log('Eliminación ejecutada:', eliminados.length, 'usuarios');
+}
+
+function calcPuntosGrupos(a) {
+  // Solo cuenta partidos de fase de grupos
+  if (!a.partidoId) return 0;
+  const letra = a.partidoId[0];
+  const grupos = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+  if (!grupos.includes(letra)) return 0;
+  return calcPuntos(a);
+}
+
+async function reiniciarPuntosOctavos() {
+  if (!confirm('¿Reiniciar puntos para octavos? Todos los participantes activos comenzarán en 0. Esta acción no se puede deshacer.')) return;
+
+  // Guardar puntos de grupos y resetear
+  const snapApuestas = await db.collection('apuestas').get();
+  const batch = db.batch();
+
+  snapApuestas.docs.forEach(doc => {
+    const a = doc.data();
+    // Guardar puntos de grupos
+    if (a.puntos > 0) {
+      batch.update(db.collection('apuestas').doc(doc.id), {
+        puntosGrupos: a.puntos,
+        puntos: 0
+      });
+    }
+  });
+  await batch.commit();
+
+  // Marcar reinicio en config
+  await db.collection('config').doc('global').set(
+    { reinicioOctavos: true, fechaReinicio: firebase.firestore.FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+
+  toast('✓ Puntos reiniciados para octavos');
+  renderTabla(); renderApuestas();
+}
+
+async function checkEliminadoActual() {
+  if (!currentUser || currentUser.rol === 'admin') return;
+  const snap = await db.collection('usuarios').doc(currentUser.uid).get();
+  if (snap.exists && snap.data().eliminado) {
+    currentUser.eliminado = true;
+    // Mostrar banner de eliminación
+    const banner = document.getElementById('banner-eliminado');
+    if (banner) banner.style.display = 'block';
+    // Deshabilitar registro de apuestas
+    const btnReg = document.getElementById('btn-registrar');
+    if (btnReg) { btnReg.disabled = true; btnReg.textContent = '⛔ Eliminado en fase de grupos'; }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

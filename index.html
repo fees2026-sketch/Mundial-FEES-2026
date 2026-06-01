@@ -291,6 +291,9 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
 </nav>
 
 <!-- MAIN -->
+<div id="banner-eliminado" style="display:none;background:#fee2e2;border-bottom:2px solid #fecaca;padding:12px 20px;text-align:center;">
+  <span style="font-size:14px;font-weight:600;color:#c0392b;">⛔ Fuiste eliminado en la fase de grupos. Puedes ver las apuestas pero ya no puedes participar.</span>
+</div>
 <div class="main" id="main-content" style="display:none;">
 
   <!-- NUEVA APUESTA -->
@@ -306,6 +309,8 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
             <option value="campeon">Campe&oacute;n del mundial</option>
             <option value="subcampeon">Subcampe&oacute;n del mundial</option>
             <option value="tercer_puesto">Tercer puesto del mundial</option>
+            <option value="goleador">Goleador fase de grupos</option>
+            <option value="valla">Valla menos vencida fase grupos</option>
           </select>
         </div>
         <div id="wrap-grupo">
@@ -476,6 +481,14 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
         </div>
         <div id="config-partidos-lista"></div>
       </div>
+      <div class="card" style="margin-top:0;margin-bottom:14px;background:var(--oro-light);border-color:#f0d89a;">
+        <div class="card-title" style="color:var(--oro);">&#9888;&#65039; Mecánica de eliminación FEES</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Al cerrar la fase de grupos, el 30% con menor puntaje será eliminado automáticamente. Desde octavos el puntaje se reinicia.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <div id="estado-eliminacion" style="font-size:13px;font-weight:600;"></div>
+          <button class="btn btn-gold btn-sm" onclick="reiniciarPuntosOctavos()">&#8635; Reiniciar puntos para octavos</button>
+        </div>
+      </div>
       <div class="card" style="margin-top:0;">
         <div class="card-title">Cierre global por fase</div>
         <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Aplica a todos los partidos que no tengan cierre individual.</p>
@@ -488,11 +501,23 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
             <label>Eliminatorias — cierre global</label>
             <input type="datetime-local" id="cierre-global-elim" onchange="saveCierreGlobal()"/>
           </div>
+          <div style="flex:1;min-width:200px;">
+            <label>&#9917; Goleador fase grupos &mdash; cierre</label>
+            <input type="datetime-local" id="cierre-goleador" onchange="saveCierreGoleadorValla()"/>
+          </div>
+          <div style="flex:1;min-width:200px;">
+            <label>&#129348; Valla menos vencida &mdash; cierre</label>
+            <input type="datetime-local" id="cierre-valla" onchange="saveCierreGoleadorValla()"/>
+          </div>
         </div>
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
             <input type="checkbox" id="ocultar-apuestas" onchange="saveConfigGeneral()" style="width:16px;height:16px;"/>
             <span style="font-size:13px;font-weight:500;">Ocultar apuestas ajenas hasta que cierre la fase</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="toggle-wa" checked onchange="toggleWhatsApp()" style="width:16px;height:16px;"/>
+            <span style="font-size:13px;font-weight:500;">WhatsApp habilitado</span>
           </label>
         </div>
       </div>
