@@ -390,8 +390,9 @@ async function doRegistro() {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     const rol  = email === ADMIN_EMAIL ? "admin" : "user";
     // Guardar perfil en Firestore
-    // Si viene de invitación, agregar connotación al nombre
-    const nombreFinal = invitacionData && invitacionData.uid ? nom + ' (invitado)' : nom;
+    // Solo agregar (invitado) si viene de invitación personal, no de cargue masivo
+    const esInvitadoReal = invitacionData && invitacionData.uid && !invitacionData.esCargue;
+    const nombreFinal = esInvitadoReal ? nom + ' (invitado)' : nom;
     const perfil = {
       nombre: nombreFinal, celular: cel, email: email,
       rol: rol, creado: firebase.firestore.FieldValue.serverTimestamp()
@@ -1412,7 +1413,24 @@ async function ejecutarCargue(usuarios) {
   btn.textContent = 'Enviando invitaciones...';
   for (const u of usuarios) {
     try {
-      await generarLinkInvitacion(u.correo, u.nombre);
+      // Cargue masivo: generar link SIN marcar como invitado
+      const token  = 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2,8);
+      const base   = window.location.origin + window.location.pathname;
+      const ref    = btoa(currentUser.uid + '|' + currentUser.nombre + '|' + token);
+      const link   = base + '?ref=' + ref;
+      // Guardar invitacion sin invitadoPor para que no marque como invitado
+      await db.collection('invitaciones').doc(token).set({
+        token,
+        creadoPor:        currentUser.uid,
+        creadoPorNombre:  currentUser.nombre,
+        correoDestino:    u.correo || '',
+        nombreDestino:    u.nombre || '',
+        usado:            false,
+        esCargue:         true,
+        creado:           firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Enviar correo
+      if (u.correo) await enviarCorreoInvitacion(u.correo, u.nombre, link);
       ok++;
     } catch(e) {
       console.error('Error invitando ' + u.correo + ':', e.message);
@@ -1561,8 +1579,16 @@ async function verificarInvitacion() {
           return;
         }
       }
+      // Cargar flag esCargue de Firestore
+      let esCargue = false;
+      try {
+        if (token) {
+          const invSnap = await db.collection('invitaciones').doc(token).get();
+          if (invSnap.exists) esCargue = invSnap.data().esCargue || false;
+        }
+      } catch(e) {}
       invitacionValida = true;
-      invitacionData   = { uid: parts[0], nombre: parts[1], token };
+      invitacionData   = { uid: parts[0], nombre: parts[1], token, esCargue };
       if (tab)  { tab.style.display = ''; tab.click(); }
       if (bloq) bloq.style.display = 'none';
       // Pre-fill nombre if available from URL
@@ -1586,11 +1612,20 @@ async function marcarInvitacionUsada(token) {
 async function generarLinkInvitacion(correoDestino, nombreDestino) {
   // Verificar si el usuario ya invitó (máximo 1 invitación por usuario no-admin)
   if (currentUser.rol !== 'admin') {
-    const snap = await db.collection('invitaciones')
-      .where('creadoPor', '==', currentUser.uid).limit(1).get();
-    if (!snap.empty) {
-      toast('⚠️ Solo puedes enviar una invitación');
-      return null;
+    try {
+      const snap = await db.collection('invitaciones')
+        .where('creadoPor', '==', currentUser.uid).limit(1).get();
+      if (!snap.empty) {
+        toast('⚠️ Solo puedes enviar una invitación');
+        return null;
+      }
+    } catch(e) {
+      console.error('Error verificando invitaciones:', e);
+      // Si no puede verificar, revisar en configGlobal
+      if (configGlobal.invitaciones && configGlobal.invitaciones[currentUser.uid]) {
+        toast('⚠️ Solo puedes enviar una invitación');
+        return null;
+      }
     }
   }
   const token  = 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2,8);
@@ -1608,6 +1643,13 @@ async function generarLinkInvitacion(correoDestino, nombreDestino) {
     usado:            false,
     creado:           firebase.firestore.FieldValue.serverTimestamp()
   });
+  // Guardar registro en configGlobal como respaldo
+  if (currentUser.rol !== 'admin') {
+    const invs = configGlobal.invitaciones || {};
+    invs[currentUser.uid] = token;
+    configGlobal.invitaciones = invs;
+    await db.collection('config').doc('global').set({ invitaciones: invs }, { merge: true });
+  }
 
   // Enviar por correo si se proporcionó email
   if (correoDestino && correoDestino.includes('@')) {
