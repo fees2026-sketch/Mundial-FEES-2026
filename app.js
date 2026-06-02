@@ -1831,9 +1831,9 @@ async function crearUsuarioIndividual() {
 // ============================================================
 const TEXTOS_DEFAULT = {
   // Header
-  app_titulo:       'Polla Mundialista FEES 2026',
+  app_titulo:       'Desafio Mundialista FEES - 2026',
   app_subtitulo:    'Estados Unidos · México · Canadá · 11 Jun – 19 Jul',
-  app_slogan:       '¡Demuestra que sabes de fútbol!',
+  app_slogan:       '"Cada fase es un reto hasta la final"',
   // Navegación
   nav_nueva:        '📝 Nueva apuesta',
   nav_partidos:     '⚽ Partidos',
