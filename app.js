@@ -255,6 +255,8 @@ function showApp() {
   document.getElementById("main-content").style.display  = "";
   actualizarHeaderUsuario();
   renderPtsInfo();
+  // Cargar config de partidos temprano para que los campos de desempate aparezcan
+  cargarConfigPartidos().then(() => renderPartidos());
   suscribirApuestas();
   // Ocultar botón invitar si el usuario es invitado
   const btnInvitar = document.getElementById('btn-invitar');
