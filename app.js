@@ -1615,19 +1615,14 @@ async function generarLinkInvitacion(correoDestino, nombreDestino) {
   // Verificar si el usuario ya invitó (máximo 1 invitación por usuario no-admin)
   if (currentUser.rol !== 'admin') {
     try {
-      const snap = await db.collection('invitaciones')
-        .where('creadoPor', '==', currentUser.uid).limit(1).get();
-      if (!snap.empty) {
+      // Verificar en el documento del usuario si ya invitó
+      const userSnap = await db.collection('usuarios').doc(currentUser.uid).get();
+      if (userSnap.exists && userSnap.data().invitacionEnviada) {
         toast('⚠️ Solo puedes enviar una invitación');
         return null;
       }
     } catch(e) {
       console.error('Error verificando invitaciones:', e);
-      // Si no puede verificar, revisar en configGlobal
-      if (configGlobal.invitaciones && configGlobal.invitaciones[currentUser.uid]) {
-        toast('⚠️ Solo puedes enviar una invitación');
-        return null;
-      }
     }
   }
   const token  = 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2,8);
@@ -1645,12 +1640,19 @@ async function generarLinkInvitacion(correoDestino, nombreDestino) {
     usado:            false,
     creado:           firebase.firestore.FieldValue.serverTimestamp()
   });
-  // Guardar registro en configGlobal como respaldo
-  if (currentUser.rol !== 'admin') {
-    const invs = configGlobal.invitaciones || {};
-    invs[currentUser.uid] = token;
-    configGlobal.invitaciones = invs;
-    await db.collection('config').doc('global').set({ invitaciones: invs }, { merge: true });
+  // Guardar registro en configGlobal como respaldo (solo admin puede escribir en config)
+  if (currentUser.rol === 'admin') {
+    try {
+      const invs = configGlobal.invitaciones || {};
+      invs[currentUser.uid] = token;
+      configGlobal.invitaciones = invs;
+      await db.collection('config').doc('global').set({ invitaciones: invs }, { merge: true });
+    } catch(e) { console.warn('No se pudo guardar respaldo en config:', e.message); }
+  } else {
+    // Para usuarios normales, guardar en su propio documento
+    try {
+      await db.collection('usuarios').doc(currentUser.uid).update({ invitacionEnviada: token });
+    } catch(e) { console.warn('No se pudo guardar invitacion en usuario:', e.message); }
   }
 
   // Enviar por correo si se proporcionó email
