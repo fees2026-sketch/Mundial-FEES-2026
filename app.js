@@ -258,6 +258,9 @@ function showApp() {
   // Cargar config de partidos temprano para que los campos de desempate aparezcan
   cargarConfigPartidos().then(() => renderPartidos());
   suscribirApuestas();
+  // Mostrar stats de admin solo para admins
+  const statsAdmin = document.getElementById('stats-admin');
+  if (statsAdmin) statsAdmin.style.display = currentUser.rol === 'admin' ? 'grid' : 'none';
   // Ocultar botón invitar si el usuario es invitado
   const btnInvitar = document.getElementById('btn-invitar');
   if (btnInvitar) {
@@ -695,11 +698,19 @@ function renderPartidos() {
         if (tr === 'cerrado') cierreBadge = '<span class="cierre-badge cierre-cerrado">⛔ Cerrado</span>';
         else if (tr && parseInt(tr) <= 24) cierreBadge = `<span class="cierre-badge cierre-pronto">⏳ Cierra en ${tr}</span>`;
         else if (tr) cierreBadge = `<span class="cierre-badge cierre-abierto">✅ Abierto</span>`;
-        return `<div class="partido-card${res?" con-resultado":""}${!abierto?" cerrado":""}" onclick="${abierto?"preselectPartido('"+p.id+"')":"void(0)"}">
+        const resBadge = res
+          ? `<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+               <span style="background:#d4edd9;color:#1a6b3c;font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">✓ Resultado</span>
+               <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#1a6b3c;">${res.local} – ${res.visitante}</span>
+             </div>`
+          : '';
+        return `<div class="partido-card${res?" con-resultado":""}${!abierto?" cerrado":""}"
+          style="${res?'border-left:4px solid #1a6b3c;background:#f0faf4;':''}"
+          onclick="${abierto?"preselectPartido('"+p.id+"')":"void(0)"}">
           <div class="p-grupo">${p.grupo} ${cierreBadge}</div>
-          <div class="p-match">⚽ ${p.local} vs ${p.visitante}</div>
+          <div class="p-match">${res?'✅':'⚽'} ${p.local} vs ${p.visitante}</div>
           <div class="p-sede">📍 ${p.sede}</div>
-          ${res?`<div class="p-res">${res.local} – ${res.visitante}</div>`:""}
+          ${resBadge}
         </div>`;
       }).join("")}</div></div>`;
   }).join("");
@@ -911,6 +922,20 @@ function renderTabla() {
   const personas = [...new Set(apuestas.map(a=>a.nombre))];
   document.getElementById("st-partic").textContent   = personas.length;
   document.getElementById("st-partidos").textContent = new Set(apuestas.filter(a=>a.partidoId).map(a=>a.partidoId)).size;
+  // Cargar stats de usuarios registrados e invitados
+  if (currentUser.rol === 'admin') {
+    db.collection('usuarios').get().then(snap => {
+      const total    = snap.size;
+      const invitados = snap.docs.filter(d => d.data().invitadoPor).length;
+      const asociados = total - invitados;
+      const stReg = document.getElementById('st-registrados');
+      const stInv = document.getElementById('st-invitados');
+      const stAso = document.getElementById('st-asociados');
+      if (stReg) stReg.textContent = total;
+      if (stInv) stInv.textContent = invitados;
+      if (stAso) stAso.textContent = asociados;
+    }).catch(()=>{});
+  }
   const container = document.getElementById("tabla-ranking");
   if (!personas.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
   const ranking = personas.map(p => {
@@ -1297,16 +1322,60 @@ function exportCSV(){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="polla_mundialista_2026.csv";a.click();
   toast("✓ CSV exportado");
 }
-function exportXLSX(){
+async function exportXLSX(){
   if(!apuestas.length){toast("No hay apuestas");return;}
-  const data=[["ID","Participante","Tipo","Local","Visitante","Goles Local","Goles Visitante","Campeón","Grupo","Fecha","Puntos"],...apuestas.map(a=>[a.numId||a.id,a.nombre,a.tipo,a.local||"",a.visitante||"",a.golLocal??"",a.golVisitante??"",a.campeon||"",a.grupo||"",a.ts,calcPuntos(a)])];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(data),"Apuestas");
-  const personas=[...new Set(apuestas.map(a=>a.nombre))];
-  const rank=[["Pos","Participante","Apuestas","Puntos"],...personas.map(p=>({n:p,pts:apuestas.filter(a=>a.nombre===p).reduce((s,a)=>s+calcPuntos(a),0),c:apuestas.filter(a=>a.nombre===p).length})).sort((a,b)=>b.pts-a.pts).map((r,i)=>[i+1,r.n,r.c,r.pts])];
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rank),"Tabla");
-  XLSX.writeFile(wb,"polla_mundialista_2026.xlsx");
-  toast("✓ Excel exportado");
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Hoja 1: Apuestas detalladas ──
+  const hdApuestas = ["#","Participante","Tipo","Partido","Goles Local","Goles Visitante",
+    "Campeón/Jugador","Grupo","Fecha registro","Puntos","Tarjetas Local","Tarjetas Visit.","Esquinas Local","Esquinas Visit."];
+  const rowsApuestas = apuestas
+    .sort((a,b) => a.nombre.localeCompare(b.nombre))
+    .map((a,i) => [
+      i+1, a.nombre, a.tipo,
+      a.local ? a.local+' vs '+a.visitante : '',
+      a.golLocal ?? '', a.golVisitante ?? '',
+      a.campeon || a.subcampeon || a.tercerPuesto || a.goleador || a.valla || '',
+      a.grupo || '', a.ts, calcPuntos(a),
+      a.tarjetasLocal ?? '', a.tarjetasVisitante ?? '',
+      a.esquinasLocal ?? '', a.esquinasVisitante ?? ''
+    ]);
+  const wsApuestas = XLSX.utils.aoa_to_sheet([hdApuestas, ...rowsApuestas]);
+  wsApuestas['!cols'] = [4,20,14,28,8,8,16,10,18,8,10,10,10,10].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsApuestas, "Apuestas");
+
+  // ── Hoja 2: Tabla de posiciones ──
+  const personas = [...new Set(apuestas.map(a=>a.nombre))];
+  const ranking = personas.map(p => {
+    const bets = apuestas.filter(a=>a.nombre===p);
+    const fases = calcPuntosPorFase(bets);
+    return { nombre:p, total:bets.reduce((s,a)=>s+calcPuntos(a),0), count:bets.length, ...fases };
+  }).sort((a,b)=>b.total-a.total);
+  const hdRank = ["Pos","Participante","Apuestas","Total Pts","Pts Grupos","Pts Octavos","Pts Cuartos","Pts Semis","Pts Final","Pts Campeón"];
+  const rowsRank = ranking.map((r,i)=>[i+1,r.nombre,r.count,r.total,r.grupos||0,r.octavos||0,r.cuartos||0,r.semis||0,r.final||0,r.campeon||0]);
+  const wsRank = XLSX.utils.aoa_to_sheet([hdRank, ...rowsRank]);
+  wsRank['!cols'] = [4,24,8,10,10,10,10,10,10,10].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsRank, "Posiciones");
+
+  // ── Hoja 3: Usuarios registrados ──
+  try {
+    const snapUsers = await db.collection('usuarios').get();
+    const hdUsers = ["#","Nombre","Correo","Celular","Rol","Tipo","Apuestas","Puntos"];
+    const rowsUsers = snapUsers.docs.map((d,i) => {
+      const u = d.data();
+      const bets = apuestas.filter(a=>a.uid===d.id);
+      const pts  = bets.reduce((s,a)=>s+calcPuntos(a),0);
+      const tipo = u.invitadoPor ? 'Invitado' : 'Asociado';
+      return [i+1, u.nombre, u.email, u.celular||'', u.rol, tipo, bets.length, pts];
+    });
+    const wsUsers = XLSX.utils.aoa_to_sheet([hdUsers, ...rowsUsers]);
+    wsUsers['!cols'] = [4,24,28,14,8,10,8,8].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, wsUsers, "Usuarios");
+  } catch(e) { console.error('Error cargando usuarios:', e); }
+
+  XLSX.writeFile(wb, "desafio_mundialista_fees_2026.xlsx");
+  toast("✓ Excel exportado con 3 hojas");
 }
 
 // TOAST
