@@ -350,6 +350,13 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
           <input type="text" id="inp-campeon" placeholder="Ej: Argentina" list="lista-equipos"/>
           <datalist id="lista-equipos"></datalist>
         </div></div>
+        <div id="wrap-num-especial" style="display:none;margin-top:10px;">
+          <div class="frow"><div>
+            <label>N&uacute;mero de goles</label>
+            <input type="number" id="inp-num-especial" min="0" max="50" value="0"
+              style="text-align:center;font-size:20px;font-weight:700;max-width:120px;"/>
+          </div></div>
+        </div>
       </div>
       <button class="btn btn-primary" id="btn-registrar" onclick="registrar()">&#10003; Registrar apuesta</button>
     </div>
@@ -524,6 +531,10 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
             <input type="checkbox" id="toggle-wa" checked onchange="toggleWhatsApp()" style="width:16px;height:16px;"/>
             <span style="font-size:13px;font-weight:500;">WhatsApp habilitado</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="toggle-final" onchange="toggleHabilitarFinal()" style="width:16px;height:16px;"/>
+            <span style="font-size:13px;font-weight:500;">Habilitar apuestas fase final (Campe&oacute;n, Subcampe&oacute;n, 3er puesto)</span>
           </label>
         </div>
       </div>

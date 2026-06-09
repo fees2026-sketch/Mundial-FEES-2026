@@ -170,6 +170,8 @@ async function cargarConfigPartidos() {
     // Re-render config partidos si ya está visible para mostrar campos de desempate
     const panel = document.getElementById('admin-panel-config');
     if (panel && panel.style.display !== 'none') renderConfigPartidos();
+    // Actualizar opciones de fase final
+    actualizarOpcionesFinal();
   } catch(e) { console.error('Error cargando config:', e); }
 }
 
@@ -261,6 +263,8 @@ function showApp() {
   // Mostrar stats de admin solo para admins
   const statsAdmin = document.getElementById('stats-admin');
   if (statsAdmin) statsAdmin.style.display = currentUser.rol === 'admin' ? 'grid' : 'none';
+  // Mostrar/ocultar opciones de fase final según config
+  actualizarOpcionesFinal();
   // Ocultar botón invitar si el usuario es invitado
   const btnInvitar = document.getElementById('btn-invitar');
   if (btnInvitar) {
@@ -495,7 +499,7 @@ function updateTipo() {
       campeon:       "Equipo campeón",
       subcampeon:    "Equipo subcampeón",
       tercer_puesto: "Equipo tercer puesto",
-      goleador:      "Jugador goleador",
+      goleador:      "Nombre del goleador",
       valla:         "Equipo valla menos vencida"
     };
     lbl.textContent = lblMap[t] || "Selección";
@@ -510,6 +514,21 @@ function updateTipo() {
       valla:         "Ej: Francia"
     };
     inp.placeholder = phMap[t] || "Escribe aquí";
+  }
+  // Mostrar/ocultar campo de número según tipo
+  const wrapNum = document.getElementById('wrap-num-especial');
+  if (wrapNum) {
+    if (t === 'goleador') {
+      wrapNum.style.display = 'block';
+      const lbl2 = wrapNum.querySelector('label');
+      if (lbl2) lbl2.textContent = 'Número de goles';
+    } else if (t === 'valla') {
+      wrapNum.style.display = 'block';
+      const lbl2 = wrapNum.querySelector('label');
+      if (lbl2) lbl2.textContent = 'Goles en contra recibidos';
+    } else {
+      wrapNum.style.display = 'none';
+    }
   }
 }
 
@@ -606,8 +625,14 @@ async function registrar() {
     if (tipo === "campeon")       a.campeon      = c;
     if (tipo === "subcampeon")    a.subcampeon   = c;
     if (tipo === "tercer_puesto") a.tercerPuesto = c;
-    if (tipo === "goleador")      a.goleador     = c;
-    if (tipo === "valla")         a.valla        = c;
+    if (tipo === "goleador") {
+      a.goleador = c;
+      a.golesGoleador = parseInt(document.getElementById('inp-num-especial')?.value) || 0;
+    }
+    if (tipo === "valla") {
+      a.valla = c;
+      a.golesValla = parseInt(document.getElementById('inp-num-especial')?.value) || 0;
+    }
   } else {
     const local     = document.getElementById("inp-local").value.trim();
     const visitante = document.getElementById("inp-visitante").value.trim();
@@ -1118,6 +1143,8 @@ function loadCierreGlobalUI() {
     wa.checked = !configGlobal.waDeshabilitado;
     wa.nextElementSibling && (wa.nextElementSibling.textContent = configGlobal.waDeshabilitado ? 'WhatsApp deshabilitado' : 'WhatsApp habilitado');
   }
+  const tf = document.getElementById('toggle-final');
+  if (tf) tf.checked = !!configGlobal.habilitarFinal;
   // Mostrar estado de eliminación
   const estadoEl = document.getElementById('estado-eliminacion');
   if (estadoEl) {
@@ -2414,6 +2441,35 @@ async function guardarApuestaModal(pid) {
     }
     cerrarModalApuesta();
   } catch(e) { toast('❌ Error: ' + e.message); }
+}
+
+
+// ============================================================
+// CONTROL DE OPCIONES FASE FINAL
+// ============================================================
+function actualizarOpcionesFinal() {
+  const select = document.getElementById('inp-tipo');
+  if (!select) return;
+  const habilitarFinal = configGlobal.habilitarFinal || currentUser.rol === 'admin';
+  ['campeon','subcampeon','tercer_puesto'].forEach(val => {
+    const opt = select.querySelector(`option[value="${val}"]`);
+    if (opt) opt.style.display = habilitarFinal ? '' : 'none';
+  });
+  // Si la opción actual está oculta, cambiar al primero visible
+  const currentOpt = select.querySelector(`option[value="${select.value}"]`);
+  if (currentOpt && currentOpt.style.display === 'none') {
+    const firstVisible = select.querySelector('option:not([style*="none"])');
+    if (firstVisible) { select.value = firstVisible.value; updateTipo(); }
+  }
+}
+
+async function toggleHabilitarFinal() {
+  configGlobal.habilitarFinal = !configGlobal.habilitarFinal;
+  await db.collection('config').doc('global').set({ habilitarFinal: configGlobal.habilitarFinal }, { merge: true });
+  const estado = configGlobal.habilitarFinal ? 'habilitadas' : 'ocultas';
+  toast('✓ Apuestas de fase final ' + estado);
+  actualizarOpcionesFinal();
+  loadCierreGlobalUI();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
