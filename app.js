@@ -2451,16 +2451,27 @@ function actualizarOpcionesFinal() {
   const select = document.getElementById('inp-tipo');
   if (!select) return;
   const habilitarFinal = configGlobal.habilitarFinal || currentUser.rol === 'admin';
-  ['campeon','subcampeon','tercer_puesto'].forEach(val => {
-    const opt = select.querySelector(`option[value="${val}"]`);
-    if (opt) opt.style.display = habilitarFinal ? '' : 'none';
+  const finales = ['campeon','subcampeon','tercer_puesto'];
+
+  finales.forEach(val => {
+    const existing = select.querySelector(`option[value="${val}"]`);
+    if (habilitarFinal && !existing) {
+      // Agregar opción si no existe
+      const labels = {campeon:'Campeón del mundial', subcampeon:'Subcampeón del mundial', tercer_puesto:'Tercer puesto del mundial'};
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = labels[val];
+      select.appendChild(opt);
+    } else if (!habilitarFinal && existing) {
+      // Remover opción si existe
+      existing.remove();
+      // Si era la seleccionada, cambiar a la primera disponible
+      if (select.value === val || !select.value) {
+        select.value = select.options[0]?.value || 'goleador';
+        updateTipo();
+      }
+    }
   });
-  // Si la opción actual está oculta, cambiar al primero visible
-  const currentOpt = select.querySelector(`option[value="${select.value}"]`);
-  if (currentOpt && currentOpt.style.display === 'none') {
-    const firstVisible = select.querySelector('option:not([style*="none"])');
-    if (firstVisible) { select.value = firstVisible.value; updateTipo(); }
-  }
 }
 
 async function toggleHabilitarFinal() {
