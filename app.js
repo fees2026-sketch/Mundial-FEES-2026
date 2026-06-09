@@ -2485,7 +2485,7 @@ async function toggleHabilitarFinal() {
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
-  updateTipo(); // Initialize form state
+  setTimeout(() => updateTipo(), 100); // Initialize form state after DOM ready
   cargarResultados();
   verificarInvitacion();
   // Fallback: si onAuthStateChanged no responde en 6s, mostrar login
