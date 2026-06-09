@@ -265,6 +265,8 @@ function showApp() {
   if (statsAdmin) statsAdmin.style.display = currentUser.rol === 'admin' ? 'grid' : 'none';
   // Mostrar/ocultar opciones de fase final según config
   actualizarOpcionesFinal();
+  // Inicializar formulario después de login
+  setTimeout(() => updateTipo(), 200);
   // Ocultar botón invitar si el usuario es invitado
   const btnInvitar = document.getElementById('btn-invitar');
   if (btnInvitar) {
