@@ -728,6 +728,7 @@ function renderPartidos() {
         const res = resultados[p.id];
         const abierto = estaAbierto(p.id, 'grupo');
         const tr = tiempoRestante(p.id, 'grupo');
+        const miApuesta = apuestas.find(a => a.uid === currentUser.uid && a.partidoId === p.id);
         let cierreBadge = '';
         if (tr === 'cerrado') cierreBadge = '<span class="cierre-badge cierre-cerrado">⛔ Cerrado</span>';
         else if (tr && parseInt(tr) <= 24) cierreBadge = `<span class="cierre-badge cierre-pronto">⏳ Cierra en ${tr}</span>`;
@@ -738,12 +739,27 @@ function renderPartidos() {
                <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#1a6b3c;">${res.local} – ${res.visitante}</span>
              </div>`
           : '';
+        // Color según estado de apuesta del usuario
+        let cardStyle = '';
+        let apuestaBadge = '';
+        if (miApuesta) {
+          cardStyle = 'border:2px solid #16a34a;background:#f0fdf4;';
+          apuestaBadge = `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;">
+            <span style="background:#16a34a;color:white;font-size:11px;font-weight:700;padding:2px 9px;border-radius:8px;">⚽ ${miApuesta.golLocal}–${miApuesta.golVisitante}</span>
+          </div>`;
+        } else if (abierto) {
+          cardStyle = 'border:2px solid #fca5a5;background:#fff7f7;';
+          apuestaBadge = `<div style="margin-top:5px;"><span style="background:#fee2e2;color:#dc2626;font-size:11px;font-weight:700;padding:2px 9px;border-radius:8px;">⚠ Sin apostar</span></div>`;
+        } else {
+          cardStyle = 'border:1px solid var(--border);opacity:.7;';
+        }
         return `<div class="partido-card${res?" con-resultado":""}${!abierto?" cerrado":""}"
-          style="${res?'border-left:4px solid #1a6b3c;background:#f0faf4;':''}"
-          onclick="${abierto?"preselectPartido('"+p.id+"')":"void(0)"}">
+          style="${cardStyle}"
+          onclick="${abierto?"preselectPartido('"+p.id+"')":"abrirApuestaPartido('"+p.id+"')"}">
           <div class="p-grupo">${p.grupo} ${cierreBadge}</div>
-          <div class="p-match">${res?'✅':'⚽'} ${p.local} vs ${p.visitante}</div>
+          <div class="p-match">${miApuesta?'✅':res?'🏁':'⚽'} ${p.local} vs ${p.visitante}</div>
           <div class="p-sede">📍 ${p.sede}</div>
+          ${apuestaBadge}
           ${resBadge}
         </div>`;
       }).join("")}</div></div>`;
@@ -2402,6 +2418,7 @@ async function guardarApuestaModal(pid) {
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
+  updateTipo(); // Initialize form state
   cargarResultados();
   verificarInvitacion();
   // Fallback: si onAuthStateChanged no responde en 6s, mostrar login
