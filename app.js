@@ -817,8 +817,8 @@ function renderApuestas() {
     if(a.tipo==="campeon")       detalle="🏆 Campeón: "+(a.campeon||a.equipoElegido||"");
     else if(a.tipo==="subcampeon")   detalle="🥈 Subcampeón: "+(a.subcampeon||a.equipoElegido||"");
     else if(a.tipo==="tercer_puesto")detalle="🥉 3er Puesto: "+(a.tercerPuesto||a.equipoElegido||"");
-    else if(a.tipo==="goleador")      detalle="⚽ Goleador: "+(a.goleador||a.equipoElegido||"");
-    else if(a.tipo==="valla")         detalle="🧤 Valla: "+(a.valla||a.equipoElegido||"");
+    else if(a.tipo==="goleador")     detalle="⚽ Goleador: "+(a.goleador||a.equipoElegido||"")+(a.golesGoleador!==undefined?" · "+a.golesGoleador+" goles":"");
+    else if(a.tipo==="valla")        detalle="🧤 Valla: "+(a.valla||a.equipoElegido||"")+(a.golesValla!==undefined?" · "+a.golesValla+" goles en contra":"");
     else { detalle=a.local+" vs "+a.visitante+(a.grupo?" ("+a.grupo+")":""); if(a.tipo==="grupo") score=a.golLocal+"–"+a.golVisitante; }
     // Mostrar desempate solo para las propias apuestas
     const esMia = a.uid === currentUser.uid;
