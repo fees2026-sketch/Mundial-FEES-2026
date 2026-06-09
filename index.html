@@ -400,7 +400,10 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
           <div class="card-title" id="sec-resultados-titulo" style="margin-bottom:4px;">Ingresar resultados reales</div>
           <p style="font-size:13px;color:var(--muted);">Al guardar se calculan los puntos autom&aacute;ticamente.</p>
         </div>
-        <button class="btn btn-gold btn-sm" id="btn-sync" onclick="syncResultados()" style="white-space:nowrap;margin-top:4px;">&#128260; Sincronizar API</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          <button class="btn btn-gold btn-sm" id="btn-sync" onclick="syncResultados()" style="white-space:nowrap;">&#128260; Sincronizar API</button>
+          <button class="btn btn-outline btn-sm" onclick="recalcularTodosPuntos()" style="white-space:nowrap;">&#128260; Recalcular puntos</button>
+        </div>
       </div>
       <div id="sync-msg" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:13px;"></div>
     </div>

@@ -959,13 +959,14 @@ async function guardarResultado(pid) {
   resultados[pid] = res;
   // Guardar en Firestore
   await db.collection("resultados").doc(pid).set(res);
-  // Actualizar puntos
-  const afectadas = apuestas.filter(a=>a.partidoId===pid);
-  const batch = db.batch();
-  afectadas.forEach(a => {
-    batch.update(db.collection("apuestas").doc(a.id), {puntos: calcPuntos(a)});
+  // Recalcular puntos de TODAS las apuestas de este partido (incluye las nuevas)
+  const snapAp = await db.collection("apuestas").where("partidoId","==",pid).get();
+  const batchPts = db.batch();
+  snapAp.docs.forEach(doc => {
+    const a = {id: doc.id, ...doc.data()};
+    batchPts.update(db.collection("apuestas").doc(doc.id), {puntos: calcPuntos(a)});
   });
-  await batch.commit();
+  await batchPts.commit();
   toast(`✓ Resultado: ${l}–${v}`);
   renderResultados(); renderApuestas(); renderTabla(); renderPartidos();
 }
@@ -989,16 +990,24 @@ async function cargarResultados() {
 }
 
 // RENDER TABLA
-function renderTabla() {
+async function renderTabla() {
   document.getElementById("st-total").textContent    = apuestas.length;
   const personas = [...new Set(apuestas.map(a=>a.nombre))];
   document.getElementById("st-partic").textContent   = personas.length;
   document.getElementById("st-partidos").textContent = new Set(apuestas.filter(a=>a.partidoId).map(a=>a.partidoId)).size;
-  // Cargar stats de usuarios registrados e invitados
-  if (currentUser.rol === 'admin') {
-    db.collection('usuarios').get().then(snap => {
-      const total    = snap.size;
-      const invitados = snap.docs.filter(d => d.data().invitadoPor).length;
+
+  const container = document.getElementById("tabla-ranking");
+  container.innerHTML = '<div class="empty" style="padding:24px">Cargando...</div>';
+
+  // Cargar TODOS los usuarios de Firestore
+  let todosUsuarios = [];
+  try {
+    const snapUsers = await db.collection('usuarios').get();
+    todosUsuarios = snapUsers.docs.map(d => ({uid: d.id, ...d.data()}));
+    // Stats admin
+    if (currentUser.rol === 'admin') {
+      const total     = snapUsers.size;
+      const invitados = snapUsers.docs.filter(d => d.data().invitadoPor).length;
       const asociados = total - invitados;
       const stReg = document.getElementById('st-registrados');
       const stInv = document.getElementById('st-invitados');
@@ -1006,16 +1015,23 @@ function renderTabla() {
       if (stReg) stReg.textContent = total;
       if (stInv) stInv.textContent = invitados;
       if (stAso) stAso.textContent = asociados;
-    }).catch(()=>{});
-  }
-  const container = document.getElementById("tabla-ranking");
-  if (!personas.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
-  const ranking = personas.map(p => {
-    const bets = apuestas.filter(a=>a.nombre===p);
-    const fases = calcPuntosPorFase(bets);
-    const total = bets.reduce((s,a)=>s+calcPuntos(a),0);
-    return {nombre:p, pts:total, count:bets.length, fases, ini:p.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
-  }).sort((a,b)=>b.pts-a.pts||b.count-a.count);
+      document.getElementById("st-partic").textContent = total;
+    }
+  } catch(e) { console.error('Error cargando usuarios:', e); }
+
+  // Construir ranking con todos los usuarios
+  const ranking = todosUsuarios
+    .filter(u => u.rol !== 'admin')
+    .map(u => {
+      const bets  = apuestas.filter(a => a.uid === u.uid);
+      const fases = calcPuntosPorFase(bets);
+      const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
+      const nombre = u.nombre || u.email;
+      return { nombre, pts: total, count: bets.length, fases, ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase() };
+    })
+    .sort((a,b) => b.pts-a.pts || b.count-a.count);
+
+  if (!ranking.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
   const colors = ["var(--oro)","#adb5bd","#cd7f32"];
   container.innerHTML = ranking.map((r,i) => {
     const faseBadges = Object.entries(r.fases)
@@ -2483,6 +2499,31 @@ async function toggleHabilitarFinal() {
   toast('✓ Apuestas de fase final ' + estado);
   actualizarOpcionesFinal();
   loadCierreGlobalUI();
+}
+
+
+// ============================================================
+// RECALCULAR PUNTOS GLOBALMENTE
+// ============================================================
+async function recalcularTodosPuntos() {
+  if (!confirm('¿Recalcular puntos de todas las apuestas? Esto puede tardar unos segundos.')) return;
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳ Recalculando...';
+  try {
+    const snap = await db.collection('apuestas').get();
+    const batch = db.batch();
+    let actualizadas = 0;
+    snap.docs.forEach(doc => {
+      const a = {id: doc.id, ...doc.data()};
+      const pts = calcPuntos(a);
+      batch.update(doc.ref, { puntos: pts });
+      actualizadas++;
+    });
+    await batch.commit();
+    toast('✓ ' + actualizadas + ' apuestas recalculadas');
+    renderTabla(); renderApuestas();
+  } catch(e) { toast('❌ Error: ' + e.message); }
+  btn.disabled = false; btn.textContent = '🔄 Recalcular puntos';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
