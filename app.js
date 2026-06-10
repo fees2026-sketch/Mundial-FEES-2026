@@ -314,6 +314,7 @@ function actualizarHeaderUsuario() {
   if (currentUser.rol === "admin") {
     document.getElementById("nav-admin").style.display = "";
   }
+
 }
 
 function showAuth() {
@@ -916,23 +917,24 @@ function renderResultados() {
         const r = resultados[p.id];
         const n = apuestas.filter(a=>a.partidoId===p.id).length;
         const cfg = configPartidos[p.id] || {};
+        const isAdmin = currentUser && currentUser.rol === 'admin';
         if(r) return `<div class="res-card">
           <div class="res-match">${p.grupo} · ${p.local} vs ${p.visitante}</div>
           <div class="res-form"><span style="font-weight:600;">${p.local}</span><div class="res-done">${r.local} – ${r.visitante}</div><span style="font-weight:600;">${p.visitante}</span>
-          <button class="btn btn-outline btn-sm" onclick="borrarResultado('${p.id}')" style="margin-left:auto;">✕</button></div>
+          ${isAdmin ? `<button class="btn btn-outline btn-sm" onclick="borrarResultado('${p.id}')" style="margin-left:auto;">✕</button>` : ''}</div>
           ${cfg.tarjetas ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">🟨 Tarjetas: ${r.tarjetasLocal||0}–${r.tarjetasVisitante||0}</div>` : ''}
           ${cfg.esquinas ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">🔄 Esquinas: ${r.esquinasLocal||0}–${r.esquinasVisitante||0}</div>` : ''}
           <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
         return `<div class="res-card">
           <div class="res-match">${p.grupo} · ${p.local} vs ${p.visitante}</div>
-          <div class="res-form">
+          ${isAdmin ? `<div class="res-form">
             <span style="font-weight:600;font-size:13px;">${p.local}</span>
             <input type="number" id="r-l-${p.id}" min="0" max="20" value="0"/>
             <span style="color:var(--muted);">vs</span>
             <input type="number" id="r-v-${p.id}" min="0" max="20" value="0"/>
             <span style="font-weight:600;font-size:13px;">${p.visitante}</span>
             <button class="btn btn-primary btn-sm" onclick="guardarResultado('${p.id}')" style="margin-left:auto;">Guardar</button>
-          </div>
+          </div>` : `<div class="res-form"><span style="font-weight:600;font-size:13px;">${p.local}</span><div style="color:var(--muted);margin:0 8px;">Sin resultado aún</div><span style="font-weight:600;font-size:13px;">${p.visitante}</span></div>`}
           ${cfg.tarjetas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:600;color:var(--muted);">🟨 Tarjetas:</span>
             <input type="number" id="r-tl-${p.id}" min="0" max="20" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
@@ -951,6 +953,7 @@ function renderResultados() {
 }
 
 async function guardarResultado(pid) {
+  if (!currentUser || currentUser.rol !== 'admin') { toast('⛔ Solo el admin puede modificar resultados'); return; }
   const l = parseInt(document.getElementById("r-l-"+pid).value)||0;
   const v = parseInt(document.getElementById("r-v-"+pid).value)||0;
   const cfg = configPartidos[pid] || {};
@@ -980,6 +983,7 @@ async function guardarResultado(pid) {
 }
 
 async function borrarResultado(pid) {
+  if (!currentUser || currentUser.rol !== 'admin') { toast('⛔ Solo el admin puede modificar resultados'); return; }
   delete resultados[pid];
   await db.collection("resultados").doc(pid).delete();
   renderResultados(); renderApuestas(); renderTabla(); renderPartidos();
