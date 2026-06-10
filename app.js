@@ -681,16 +681,24 @@ async function registrar() {
     if (['campeon','subcampeon','tercer_puesto','goleador','valla'].includes(a.tipo)) {
       const existing = apuestas.find(x => x.uid === currentUser.uid && x.tipo === a.tipo);
       if (existing) {
-        await db.collection("apuestas").doc(existing.id).update({
-          campeon: a.campeon, subcampeon: a.subcampeon,
-          tercerPuesto: a.tercerPuesto, goleador: a.goleador, valla: a.valla,
-          equipoElegido: a.equipoElegido, ts: new Date().toLocaleString("es-CO")
-        });
+        // Solo actualizar los campos que tienen valor (evitar undefined)
+        const updateData = { equipoElegido: a.equipoElegido || '', ts: new Date().toLocaleString("es-CO") };
+        if (a.campeon      !== undefined) updateData.campeon      = a.campeon;
+        if (a.subcampeon   !== undefined) updateData.subcampeon   = a.subcampeon;
+        if (a.tercerPuesto !== undefined) updateData.tercerPuesto = a.tercerPuesto;
+        if (a.goleador     !== undefined) updateData.goleador     = a.goleador;
+        if (a.valla        !== undefined) updateData.valla        = a.valla;
+        if (a.golesGoleador!== undefined) updateData.golesGoleador= a.golesGoleador;
+        if (a.golesValla   !== undefined) updateData.golesValla   = a.golesValla;
+        await db.collection("apuestas").doc(existing.id).update(updateData);
         toast('✓ Desafío actualizado');
         return;
       }
     }
-    await db.collection("apuestas").add(a);
+    // Limpiar campos undefined antes de guardar
+    const aClean = {};
+    Object.keys(a).forEach(k => { if (a[k] !== undefined) aClean[k] = a[k]; });
+    await db.collection("apuestas").add(aClean);
     toast(textos.toast_apuesta_ok || '✓ Desafío registrado');
     document.getElementById("inp-partido").value  = "";
     document.getElementById("inp-local").value    = "";
