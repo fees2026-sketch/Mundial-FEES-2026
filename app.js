@@ -1084,9 +1084,6 @@ async function renderTabla() {
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
     } else {
-      // Leer todas las apuestas con .get() (lectura única, no suscripción)
-      // Pequeño delay para asegurar que el token de auth esté activo
-      await new Promise(r => setTimeout(r, 500));
       const snap = await db.collection('apuestas').get();
       todasLasApuestas = snap.docs.map(d => ({id: d.id, ...d.data()}));
       const vistos = new Map();
