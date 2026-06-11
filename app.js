@@ -1057,9 +1057,8 @@ async function renderTabla() {
   // Cargar usuarios desde caché (reduce lecturas Firestore)
   let todosUsuarios = [];
   try {
-    todosUsuarios = await getUsuarios();
-    // Stats admin
     if (currentUser.rol === 'admin') {
+      todosUsuarios = await getUsuarios();
       const total     = todosUsuarios.length;
       const invitados = todosUsuarios.filter(u => u.invitadoPor).length;
       const asociados = total - invitados;
@@ -1070,8 +1069,36 @@ async function renderTabla() {
       if (stInv) stInv.textContent = invitados;
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
+    } else {
+      // Para usuarios normales: construir lista de participantes desde apuestas
+      const vistos = new Set();
+      apuestas.forEach(a => {
+        if (a.uid && a.nombre && !vistos.has(a.uid)) {
+          vistos.add(a.uid);
+          todosUsuarios.push({ uid: a.uid, nombre: a.nombre, rol: 'user' });
+        }
+      });
     }
   } catch(e) { console.error('Error cargando usuarios:', e); }
+
+  // Calcular aciertos de desempate por partido para un usuario
+  function calcDesempate(bets) {
+    let tarjetas = 0, esquinas = 0;
+    bets.forEach(a => {
+      if (!a.partidoId || !resultados[a.partidoId]) return;
+      const r = resultados[a.partidoId];
+      const cfg = configPartidos[a.partidoId] || {};
+      if (cfg.tarjetas && a.tarjetasLocal !== undefined && r.tarjetasLocal !== undefined) {
+        if (Number(a.tarjetasLocal) === Number(r.tarjetasLocal) &&
+            Number(a.tarjetasVisitante) === Number(r.tarjetasVisitante)) tarjetas++;
+      }
+      if (cfg.esquinas && a.esquinasLocal !== undefined && r.esquinasLocal !== undefined) {
+        if (Number(a.esquinasLocal) === Number(r.esquinasLocal) &&
+            Number(a.esquinasVisitante) === Number(r.esquinasVisitante)) esquinas++;
+      }
+    });
+    return { tarjetas, esquinas };
+  }
 
   // Construir ranking con todos los usuarios
   const ranking = todosUsuarios
@@ -1081,9 +1108,14 @@ async function renderTabla() {
       const fases = calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
-      return { nombre, pts: total, count: bets.length, fases, ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase() };
+      const desemp = calcDesempate(bets);
+      return { nombre, pts: total, count: bets.length, fases, ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(), tarjetas: desemp.tarjetas, esquinas: desemp.esquinas };
     })
-    .sort((a,b) => b.pts-a.pts || b.count-a.count);
+    .sort((a,b) => b.pts-a.pts || b.tarjetas-a.tarjetas || b.esquinas-a.esquinas || b.count-a.count);
+
+  // Detectar grupos empatados en puntos para mostrar desempate
+  const ptsSet = ranking.map(r => r.pts);
+  const empataConOtro = (pts) => ptsSet.filter(p => p === pts).length > 1;
 
   if (!ranking.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
   const colors = ["var(--oro)","#adb5bd","#cd7f32"];
@@ -1095,6 +1127,18 @@ async function renderTabla() {
         const icons  = {grupos:'⚽',octavos:'🔁',cuartos:'🏅',semis:'🌟',final:'🏆',campeon:'👑'};
         return `<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">${icons[k]||''} ${labels[k]||k}: <strong>${v}</strong></span>`;
       }).join('');
+
+    // Mostrar desempate solo si esta persona está empatada en puntos con alguien más
+    let desempateBadges = '';
+    if (currentUser.rol === 'admin' && empataConOtro(r.pts)) {
+      if (r.tarjetas > 0)
+        desempateBadges += `<span title="Aciertos en tarjetas amarillas (desempate)" style="font-size:10px;background:#fdf3dc;color:#c8972b;padding:2px 7px;border-radius:8px;margin-right:3px;">🟨 ${r.tarjetas} tarjeta${r.tarjetas!==1?'s':''}</span>`;
+      if (r.esquinas > 0)
+        desempateBadges += `<span title="Aciertos en tiros de esquina (desempate)" style="font-size:10px;background:#e8eef7;color:var(--verde);padding:2px 7px;border-radius:8px;">🔄 ${r.esquinas} esquina${r.esquinas!==1?'s':''}</span>`;
+      if (!desempateBadges)
+        desempateBadges = `<span style="font-size:10px;background:#f4f4f4;color:var(--muted);padding:2px 7px;border-radius:8px;">⚖️ Empate</span>`;
+    }
+
     return `<div class="rank-row" style="flex-wrap:wrap;">
       <div class="rank-pos${i<3?" top":""}">${i+1}</div>
       <div style="width:38px;height:38px;border-radius:50%;background:${colors[i]||"var(--verde)"};color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${r.ini}</div>
@@ -1102,6 +1146,7 @@ async function renderTabla() {
         ${i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":""}${r.nombre}
         <div class="rank-sub">${r.count} apuesta${r.count!==1?"s":""}</div>
         ${faseBadges ? `<div style="margin-top:5px;flex-wrap:wrap;display:flex;gap:3px;">${faseBadges}</div>` : ''}
+        ${desempateBadges ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;">${desempateBadges}</div>` : ''}
       </div>
       <div><div class="rank-pts">${r.pts}</div><div class="pts-lbl">puntos</div></div>
     </div>`;
