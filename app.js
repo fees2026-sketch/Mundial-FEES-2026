@@ -123,6 +123,22 @@ async function cargarCriterios() {
 let configPartidos = {}; // { partidoId: { cierreISO, tarjetas, esquinas } }
 let configGlobal   = {}; // { cierreGrupos, cierreElim, ocultarApuestas }
 
+// CACHE DE USUARIOS (para reducir lecturas de Firestore)
+let usuariosCache = [];
+let usuariosCacheTs = 0;
+const USUARIOS_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+async function getUsuarios(forzar = false) {
+  const ahora = Date.now();
+  if (!forzar && usuariosCache.length > 0 && (ahora - usuariosCacheTs) < USUARIOS_CACHE_TTL) {
+    return usuariosCache;
+  }
+  const snap = await db.collection('usuarios').get();
+  usuariosCache = snap.docs.map(d => ({uid: d.id, ...d.data()}));
+  usuariosCacheTs = ahora;
+  return usuariosCache;
+}
+
 function estaAbierto(partidoId, tipo) {
   const cfg = configPartidos[partidoId];
   const ahora = new Date();
@@ -1011,15 +1027,14 @@ async function renderTabla() {
   const container = document.getElementById("tabla-ranking");
   container.innerHTML = '<div class="empty" style="padding:24px">Cargando...</div>';
 
-  // Cargar TODOS los usuarios de Firestore
+  // Cargar usuarios desde caché (reduce lecturas Firestore)
   let todosUsuarios = [];
   try {
-    const snapUsers = await db.collection('usuarios').get();
-    todosUsuarios = snapUsers.docs.map(d => ({uid: d.id, ...d.data()}));
+    todosUsuarios = await getUsuarios();
     // Stats admin
     if (currentUser.rol === 'admin') {
-      const total     = snapUsers.size;
-      const invitados = snapUsers.docs.filter(d => d.data().invitadoPor).length;
+      const total     = todosUsuarios.length;
+      const invitados = todosUsuarios.filter(u => u.invitadoPor).length;
       const asociados = total - invitados;
       const stReg = document.getElementById('st-registrados');
       const stInv = document.getElementById('st-invitados');
@@ -1265,13 +1280,11 @@ async function renderUsuarios() {
   const container = document.getElementById("lista-usuarios");
   container.innerHTML = '<div class="empty">Cargando...</div>';
   try {
-    const snap = await db.collection("usuarios").get();
-    if (snap.empty) { container.innerHTML='<div class="empty"><div class="empty-ico">👥</div>No hay usuarios</div>'; return; }
-    const users = snap.docs.map(d=>({uid:d.id,...d.data()}));
-
-    // Cargar TODAS las apuestas para calcular quiénes han apostado
-    const snapAp = await db.collection("apuestas").get();
-    const conApuestas = new Set(snapAp.docs.map(d=>d.data().uid));
+    // Forzar refresh del caché al abrir panel admin
+    const users = await getUsuarios(true);
+    if (!users.length) { container.innerHTML='<div class="empty"><div class="empty-ico">👥</div>No hay usuarios</div>'; return; }
+    // Usar apuestas en memoria
+    const conApuestas = new Set(apuestas.map(a=>a.uid));
 
     // Botón de recordatorio masivo
     const sinApostar = users.filter(u=>!conApuestas.has(u.uid));
@@ -1462,11 +1475,10 @@ async function exportXLSX(){
 
   // ── Hoja 3: Usuarios registrados ──
   try {
-    const snapUsers = await db.collection('usuarios').get();
+    const snapUsers = await getUsuarios();
     const hdUsers = ["#","Nombre","Correo","Celular","Rol","Tipo","Apuestas","Puntos"];
-    const rowsUsers = snapUsers.docs.map((d,i) => {
-      const u = d.data();
-      const bets = apuestas.filter(a=>a.uid===d.id);
+    const rowsUsers = snapUsers.map((u,i) => {
+      const bets = apuestas.filter(a=>a.uid===u.uid);
       const pts  = bets.reduce((s,a)=>s+calcPuntos(a),0);
       const tipo = u.invitadoPor ? 'Invitado' : 'Asociado';
       return [i+1, u.nombre, u.email, u.celular||'', u.rol, tipo, bets.length, pts];
