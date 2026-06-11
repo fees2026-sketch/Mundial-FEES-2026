@@ -1103,12 +1103,19 @@ async function renderTabla() {
   }
 
   // Construir ranking con todos los usuarios
+  const esAdmin = currentUser.rol === 'admin';
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
     .map(u => {
-      const bets  = u._bets || apuestas.filter(a => a.uid === u.uid);
-      const fases = calcPuntosPorFase(bets);
-      const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
+      const bets  = esAdmin ? apuestas.filter(a => a.uid === u.uid) : (u._bets || []);
+      // Admin recalcula en vivo; usuarios usan campo puntos guardado en Firestore
+      const getPts = esAdmin ? (a => calcPuntos(a)) : (a => Number(a.puntos)||0);
+      const fases = (() => {
+        const f = { grupos:0, octavos:0, cuartos:0, semis:0, final:0, campeon:0 };
+        bets.forEach(a => { const p=getPts(a); if(p>0){ const fase=getFase(a.partidoId); if(f[fase]!==undefined) f[fase]+=p; } });
+        return f;
+      })();
+      const total = bets.reduce((s,a) => s+getPts(a), 0);
       const nombre = u.nombre || u.email;
       const desemp = calcDesempate(bets);
       return { nombre, pts: total, count: bets.length, fases, ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(), tarjetas: desemp.tarjetas, esquinas: desemp.esquinas };
