@@ -1070,18 +1070,16 @@ async function renderTabla() {
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
     } else {
-      // Para usuarios normales: leer todas las apuestas de Firestore para construir la tabla
+      // Para usuarios normales: leer todas las apuestas y agrupar por usuario
       const snapAll = await db.collection('apuestas').get();
       const todasApuestas = snapAll.docs.map(d => ({id: d.id, ...d.data()}));
-      const vistos = new Set();
+      const vistos = new Map();
       todasApuestas.forEach(a => {
-        if (a.uid && a.nombre && !vistos.has(a.uid)) {
-          vistos.add(a.uid);
-          todosUsuarios.push({ uid: a.uid, nombre: a.nombre, rol: 'user', _bets: [] });
-        }
+        if (!a.uid || !a.nombre) return;
+        if (!vistos.has(a.uid)) vistos.set(a.uid, { uid: a.uid, nombre: a.nombre, rol: 'user', _bets: [] });
+        vistos.get(a.uid)._bets.push(a);
       });
-      // Adjuntar apuestas a cada usuario para calcular puntos
-      todosUsuarios.forEach(u => { u._bets = todasApuestas.filter(a => a.uid === u.uid); });
+      todosUsuarios.push(...vistos.values());
     }
   } catch(e) { console.error('Error cargando usuarios:', e); }
 
