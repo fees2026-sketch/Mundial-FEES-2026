@@ -91,6 +91,8 @@ let apuestas    = [];
 let resultados  = {};
 let nextId      = 1;
 let unsubApuestas = null;
+let unsubTodasApuestas = null;
+let todasApuestasGlobal = [];
 
 const CRITERIOS_DEFAULT = [
   {id:"resultado_exacto",nombre:"Resultado exacto",  desc:"Marcador final correcto",icon:"🎯",pts:3,fijo:true},
@@ -354,10 +356,14 @@ function showAuth() {
 // SUSCRIPCIÓN TIEMPO REAL A APUESTAS
 function suscribirApuestas() {
   if (unsubApuestas) unsubApuestas();
+  if (unsubTodasApuestas) { unsubTodasApuestas(); unsubTodasApuestas = null; }
+
+  const esAdmin = currentUser.rol === "admin";
+  const ocultarParaUser = configGlobal.ocultarApuestas && !esAdmin;
+
+  // Suscripción principal: admin ve todas, usuario solo las suyas (para pestaña Apuestas)
   let query = db.collection("apuestas");
-  // Si ocultarApuestas está activo, usuario normal solo ve las suyas
-  const ocultarParaUser = configGlobal.ocultarApuestas && currentUser.rol !== "admin";
-  if (currentUser.rol !== "admin" || ocultarParaUser) {
+  if (!esAdmin || ocultarParaUser) {
     query = query.where("uid", "==", currentUser.uid);
   }
   unsubApuestas = query.onSnapshot(snap => {
@@ -366,10 +372,22 @@ function suscribirApuestas() {
       const nums = apuestas.map(a => Number(a.numId)||0);
       nextId = Math.max(...nums) + 1;
     }
+    if (esAdmin) todasApuestasGlobal = apuestas; // admin ya tiene todas
     renderApuestas();
     renderTabla();
     renderResultados();
   });
+
+  // Para usuarios normales: segunda suscripción sin filtro solo para la tabla
+  if (!esAdmin) {
+    unsubTodasApuestas = db.collection("apuestas").onSnapshot(snap => {
+      todasApuestasGlobal = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      renderTabla();
+    }, err => {
+      console.warn('[TABLA] Sin permiso para leer todas las apuestas:', err.message);
+      todasApuestasGlobal = apuestas; // fallback: solo las propias
+    });
+  }
 }
 
 // AUTH FUNCIONES
@@ -1059,7 +1077,8 @@ async function renderTabla() {
   // Admin: carga usuarios desde Firestore (tiene permisos)
   // Usuario normal: agrupa directamente desde todas las apuestas (consulta pública)
   let todosUsuarios = [];
-  let todasLasApuestas = apuestas; // para admin ya están todas en memoria
+  // Usar todasApuestasGlobal: para admin = apuestas en memoria, para usuario = suscripción sin filtro
+  const todasLasApuestas = todasApuestasGlobal.length > 0 ? todasApuestasGlobal : apuestas;
 
   try {
     if (esAdmin) {
@@ -1075,10 +1094,7 @@ async function renderTabla() {
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
     } else {
-      // Leer TODAS las apuestas de Firestore (sin filtro por uid)
-      const snap = await db.collection('apuestas').get();
-      todasLasApuestas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      // Construir lista de participantes únicos
+      // Construir lista de participantes únicos desde todasApuestasGlobal
       const vistos = new Map();
       todasLasApuestas.forEach(a => {
         if (a.uid && a.nombre && !vistos.has(a.uid))
