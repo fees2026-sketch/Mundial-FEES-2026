@@ -389,6 +389,9 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
       <select id="fil-persona" onchange="renderApuestas()"><option value="">Todos los participantes</option></select>
       <select id="fil-grupo-a" onchange="renderApuestas()"><option value="">Todos los grupos</option></select>
     </div>
+    <div id="filtro-partido-admin" style="display:none;" class="filters">
+      <select id="fil-partido-a" onchange="renderApuestas()" style="max-width:340px;"><option value="">Todos los partidos</option></select>
+    </div>
     <div id="lista-apuestas"></div>
   </div>
 

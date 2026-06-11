@@ -286,6 +286,8 @@ function showApp() {
   // Mostrar stats de admin solo para admins
   const statsAdmin = document.getElementById('stats-admin');
   if (statsAdmin) statsAdmin.style.display = currentUser.rol === 'admin' ? 'grid' : 'none';
+  const filtroPartido = document.getElementById('filtro-partido-admin');
+  if (filtroPartido) filtroPartido.style.display = currentUser.rol === 'admin' ? 'block' : 'none';
   // Mostrar/ocultar opciones de fase final según config
   actualizarOpcionesFinal();
   // Inicializar formulario después de login
@@ -835,11 +837,29 @@ function renderApuestas() {
   const grupos   = [...new Set(apuestas.filter(a=>a.grupo).map(a=>a.grupo))];
   const filP = document.getElementById("fil-persona");
   const filG = document.getElementById("fil-grupo-a");
-  const curP = filP.value, curG = filG.value;
+  const filPart = document.getElementById("fil-partido-a");
+  const curP = filP.value, curG = filG.value, curPart = filPart ? filPart.value : '';
   filP.innerHTML = '<option value="">Todos los participantes</option>'+personas.map(p=>`<option${p===curP?" selected":""}>${p}</option>`).join("");
   filG.innerHTML = '<option value="">Todos los grupos</option>'+grupos.map(g=>`<option${g===curG?" selected":""}>${g}</option>`).join("");
+  // Llenar filtro de partidos si es admin
+  if (filPart && currentUser.rol === 'admin') {
+    const partConApuestas = [...new Set(apuestas.filter(a=>a.partidoId).map(a=>a.partidoId))];
+    const curVal = filPart.value;
+    filPart.innerHTML = '<option value="">Todos los partidos</option>' +
+      partConApuestas.map(pid => {
+        const p = PARTIDOS.find(x=>x.id===pid);
+        const label = p ? `${p.local} vs ${p.visitante}` : pid;
+        return `<option value="${pid}"${pid===curVal?' selected':''}>${label}</option>`;
+      }).join("");
+  }
   const fT=document.getElementById("fil-tipo").value, fP=filP.value, fG2=filG.value;
-  let lista = apuestas.filter(a=>(!fT||a.tipo===fT)&&(!fP||a.nombre===fP)&&(!fG2||a.grupo===fG2));
+  const fPart = filPart ? filPart.value : '';
+  let lista = apuestas.filter(a=>
+    (!fT||a.tipo===fT) &&
+    (!fP||a.nombre===fP) &&
+    (!fG2||a.grupo===fG2) &&
+    (!fPart||a.partidoId===fPart)
+  );
   const container = document.getElementById("lista-apuestas");
   if (!lista.length) { container.innerHTML='<div class="empty"><div class="empty-ico">📭</div>No hay apuestas que mostrar</div>'; return; }
   container.innerHTML = lista.map(a => {
