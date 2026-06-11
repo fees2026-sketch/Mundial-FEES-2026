@@ -285,7 +285,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
   <button class="active" data-nav="nueva" onclick="showTab('nueva',this)"><span id="nav-nueva-txt">&#128221; Nueva apuesta</span></button>
   <button data-nav="partidos" onclick="showTab('partidos',this)">&#9917; Partidos</button>
   <button data-nav="apuestas" onclick="showTab('apuestas',this)">&#128203; Apuestas</button>
-  <button data-nav="resultados" onclick="showTab('resultados',this)">&#127919; Resultados</button>
+  <button id="nav-resultados" data-nav="resultados" onclick="showTab('resultados',this)">&#127919; Resultados</button>
   <button data-nav="tabla" onclick="showTab('tabla',this)">&#127885; Tabla</button>
   <button id="nav-admin" onclick="showTab('admin',this)" style="display:none;">&#9881; Admin <span class="admin-badge">Admin</span></button>
 </nav>
@@ -499,7 +499,11 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
       </div>
       <div class="card" style="margin-top:0;margin-bottom:14px;background:var(--oro-light);border-color:#f0d89a;">
         <div class="card-title" style="color:var(--oro);">&#9888;&#65039; Mecánica de eliminación FEES</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Al cerrar la fase de grupos, el 30% con menor puntaje será eliminado automáticamente. Desde octavos el puntaje se reinicia.</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">El 30% con menor puntaje será eliminado en la fecha que definas. Desde octavos el puntaje se reinicia.</p>
+        <div style="margin-bottom:12px;">
+          <label>Fecha de eliminaci&oacute;n del 30% (despu&eacute;s del &uacute;ltimo partido de grupos)</label>
+          <input type="datetime-local" id="fecha-eliminacion" onchange="saveFechaEliminacion()" style="margin-top:5px;"/>
+        </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <div id="estado-eliminacion" style="font-size:13px;font-weight:600;"></div>
           <button class="btn btn-gold btn-sm" onclick="reiniciarPuntosOctavos()">&#8635; Reiniciar puntos para octavos</button>

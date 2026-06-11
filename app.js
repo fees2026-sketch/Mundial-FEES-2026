@@ -201,6 +201,13 @@ async function saveCierreGlobal() {
   renderPartidos();
 }
 
+async function saveFechaEliminacion() {
+  const fecha = document.getElementById('fecha-eliminacion')?.value || '';
+  configGlobal.fechaEliminacion = fecha;
+  await db.collection('config').doc('global').set({ fechaEliminacion: fecha }, { merge: true });
+  toast('✓ Fecha de eliminación guardada');
+}
+
 async function toggleWhatsApp() {
   configGlobal.waDeshabilitado = !configGlobal.waDeshabilitado;
   await db.collection('config').doc('global').set(configGlobal, {merge:true});
@@ -1190,6 +1197,8 @@ function loadCierreGlobalUI() {
   }
   const tf = document.getElementById('toggle-final');
   if (tf) tf.checked = !!configGlobal.habilitarFinal;
+  const fe = document.getElementById('fecha-eliminacion');
+  if (fe && configGlobal.fechaEliminacion) fe.value = configGlobal.fechaEliminacion;
   // Mostrar estado de eliminación
   const estadoEl = document.getElementById('estado-eliminacion');
   if (estadoEl) {
@@ -2248,10 +2257,10 @@ async function verificarEliminacion() {
   // Si ya se ejecutó la eliminación, no volver a ejecutar
   if (configGlobal.eliminacionEjecutada) return;
 
-  // Verificar si la fase de grupos cerró
-  const cierreGrupos = configGlobal.cierreGrupos;
-  if (!cierreGrupos) return;
-  if (new Date(cierreGrupos) > new Date()) return;
+  // Usar fechaEliminacion separada del cierre de apuestas
+  const fechaElim = configGlobal.fechaEliminacion;
+  if (!fechaElim) return; // Solo ejecutar si el admin define esta fecha explícitamente
+  if (new Date(fechaElim) > new Date()) return;
 
   // Calcular ranking actual
   const snapUsers = await db.collection('usuarios').get();
