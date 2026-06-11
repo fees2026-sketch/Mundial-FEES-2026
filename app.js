@@ -378,16 +378,7 @@ function suscribirApuestas() {
     renderResultados();
   });
 
-  // Para usuarios normales: segunda suscripción sin filtro solo para la tabla
-  if (!esAdmin) {
-    unsubTodasApuestas = db.collection("apuestas").onSnapshot(snap => {
-      todasApuestasGlobal = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      renderTabla();
-    }, err => {
-      console.warn('[TABLA] Sin permiso para leer todas las apuestas:', err.message);
-      todasApuestasGlobal = apuestas; // fallback: solo las propias
-    });
-  }
+  // Para usuarios normales: todasApuestasGlobal se carga en renderTabla bajo demanda
 }
 
 // AUTH FUNCIONES
@@ -1077,8 +1068,7 @@ async function renderTabla() {
   // Admin: carga usuarios desde Firestore (tiene permisos)
   // Usuario normal: agrupa directamente desde todas las apuestas (consulta pública)
   let todosUsuarios = [];
-  // Usar todasApuestasGlobal: para admin = apuestas en memoria, para usuario = suscripción sin filtro
-  const todasLasApuestas = todasApuestasGlobal.length > 0 ? todasApuestasGlobal : apuestas;
+  let todasLasApuestas = apuestas;
 
   try {
     if (esAdmin) {
@@ -1094,7 +1084,11 @@ async function renderTabla() {
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
     } else {
-      // Construir lista de participantes únicos desde todasApuestasGlobal
+      // Leer todas las apuestas con .get() (lectura única, no suscripción)
+      // Pequeño delay para asegurar que el token de auth esté activo
+      await new Promise(r => setTimeout(r, 500));
+      const snap = await db.collection('apuestas').get();
+      todasLasApuestas = snap.docs.map(d => ({id: d.id, ...d.data()}));
       const vistos = new Map();
       todasLasApuestas.forEach(a => {
         if (a.uid && a.nombre && !vistos.has(a.uid))
