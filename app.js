@@ -1073,10 +1073,19 @@ async function renderTabla() {
     }
   } catch(e) { console.error('Error cargando usuarios:', e); }
 
-  // Partidos con desempate habilitado
-  const partidosConTarjetas = Object.entries(configPartidos).filter(([,c])=>c.tarjetas).map(([id])=>id);
-  const partidosConEsquinas = Object.entries(configPartidos).filter(([,c])=>c.esquinas).map(([id])=>id);
-  const hayDesempate = partidosConTarjetas.length > 0 || partidosConEsquinas.length > 0;
+  // Partido más cercano con desempate habilitado (tarjetas o esquinas)
+  const partidosConDesempate = Object.entries(configPartidos)
+    .filter(([,c]) => c.tarjetas || c.esquinas)
+    .map(([id]) => id);
+  const hayDesempate = partidosConDesempate.length > 0;
+  // Ordenar por posición en PARTIDOS (orden cronológico del fixture)
+  const partidoDesempate = hayDesempate
+    ? partidosConDesempate.sort((a,b) => {
+        const ia = PARTIDOS.findIndex(p=>p.id===a);
+        const ib = PARTIDOS.findIndex(p=>p.id===b);
+        return ia - ib;
+      })[0]
+    : null;
 
   // Construir ranking con todos los usuarios
   const ranking = todosUsuarios
@@ -1087,19 +1096,17 @@ async function renderTabla() {
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
 
-      // Desempate: recopilar apuestas de tarjetas/esquinas por partido
+      // Desempate: solo el partido más cercano con desempate activo
       const desempate = {};
-      if (currentUser.rol === 'admin' && hayDesempate) {
-        [...partidosConTarjetas, ...partidosConEsquinas].forEach(pid => {
-          const apuesta = bets.find(a => a.partidoId === pid);
-          if (!apuesta) return;
-          const p = PARTIDOS.find(x => x.id === pid);
-          const label = p ? `${p.local} vs ${p.visitante}` : pid;
-          const cfg = configPartidos[pid] || {};
-          desempate[pid] = { label, tarjetas: cfg.tarjetas, esquinas: cfg.esquinas,
-            tl: apuesta.tarjetasLocal, tv: apuesta.tarjetasVisitante,
-            el: apuesta.esquinasLocal, ev: apuesta.esquinasVisitante };
-        });
+      if (currentUser.rol === 'admin' && partidoDesempate) {
+        const pid = partidoDesempate;
+        const apuesta = bets.find(a => a.partidoId === pid);
+        const p = PARTIDOS.find(x => x.id === pid);
+        const label = p ? `${p.local} vs ${p.visitante}` : pid;
+        const cfg = configPartidos[pid] || {};
+        desempate[pid] = { label, tarjetas: cfg.tarjetas, esquinas: cfg.esquinas,
+          tl: apuesta?.tarjetasLocal, tv: apuesta?.tarjetasVisitante,
+          el: apuesta?.esquinasLocal, ev: apuesta?.esquinasVisitante };
       }
 
       return { nombre, pts: total, count: bets.length, fases, desempate,
