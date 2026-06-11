@@ -1073,6 +1073,11 @@ async function renderTabla() {
     }
   } catch(e) { console.error('Error cargando usuarios:', e); }
 
+  // Partidos con desempate habilitado
+  const partidosConTarjetas = Object.entries(configPartidos).filter(([,c])=>c.tarjetas).map(([id])=>id);
+  const partidosConEsquinas = Object.entries(configPartidos).filter(([,c])=>c.esquinas).map(([id])=>id);
+  const hayDesempate = partidosConTarjetas.length > 0 || partidosConEsquinas.length > 0;
+
   // Construir ranking con todos los usuarios
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
@@ -1081,7 +1086,24 @@ async function renderTabla() {
       const fases = calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
-      return { nombre, pts: total, count: bets.length, fases, ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase() };
+
+      // Desempate: recopilar apuestas de tarjetas/esquinas por partido
+      const desempate = {};
+      if (currentUser.rol === 'admin' && hayDesempate) {
+        [...partidosConTarjetas, ...partidosConEsquinas].forEach(pid => {
+          const apuesta = bets.find(a => a.partidoId === pid);
+          if (!apuesta) return;
+          const p = PARTIDOS.find(x => x.id === pid);
+          const label = p ? `${p.local} vs ${p.visitante}` : pid;
+          const cfg = configPartidos[pid] || {};
+          desempate[pid] = { label, tarjetas: cfg.tarjetas, esquinas: cfg.esquinas,
+            tl: apuesta.tarjetasLocal, tv: apuesta.tarjetasVisitante,
+            el: apuesta.esquinasLocal, ev: apuesta.esquinasVisitante };
+        });
+      }
+
+      return { nombre, pts: total, count: bets.length, fases, desempate,
+               ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase() };
     })
     .sort((a,b) => b.pts-a.pts || b.count-a.count);
 
@@ -1095,6 +1117,25 @@ async function renderTabla() {
         const icons  = {grupos:'⚽',octavos:'🔁',cuartos:'🏅',semis:'🌟',final:'🏆',campeon:'👑'};
         return `<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">${icons[k]||''} ${labels[k]||k}: <strong>${v}</strong></span>`;
       }).join('');
+
+    // Badges de desempate — solo admin, solo partidos con desempate configurado
+    let desempateBadges = '';
+    if (currentUser.rol === 'admin') {
+      Object.entries(r.desempate).forEach(([pid, d]) => {
+        const res = resultados[pid] || {};
+        if (d.tarjetas) {
+          const tl = d.tl ?? '?', tv = d.tv ?? '?';
+          const acerto = res.tarjetasLocal !== undefined && Number(d.tl) === Number(res.tarjetasLocal) && Number(d.tv) === Number(res.tarjetasVisitante);
+          desempateBadges += `<span title="🟨 Tarjetas en ${d.label}" style="font-size:10px;background:${acerto?'#d4edd9':'#fdf3dc'};color:${acerto?'#1a6b3c':'#c8972b'};padding:2px 7px;border-radius:8px;margin-right:3px;">🟨 ${tl}–${tv}</span>`;
+        }
+        if (d.esquinas) {
+          const el = d.el ?? '?', ev = d.ev ?? '?';
+          const acerto = res.esquinasLocal !== undefined && Number(d.el) === Number(res.esquinasLocal) && Number(d.ev) === Number(res.esquinasVisitante);
+          desempateBadges += `<span title="🔄 Esquinas en ${d.label}" style="font-size:10px;background:${acerto?'#d4edd9':'#e8eef7'};color:${acerto?'#1a6b3c':'var(--verde)'};padding:2px 7px;border-radius:8px;margin-right:3px;">🔄 ${el}–${ev}</span>`;
+        }
+      });
+    }
+
     return `<div class="rank-row" style="flex-wrap:wrap;">
       <div class="rank-pos${i<3?" top":""}">${i+1}</div>
       <div style="width:38px;height:38px;border-radius:50%;background:${colors[i]||"var(--verde)"};color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${r.ini}</div>
@@ -1102,6 +1143,7 @@ async function renderTabla() {
         ${i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":""}${r.nombre}
         <div class="rank-sub">${r.count} apuesta${r.count!==1?"s":""}</div>
         ${faseBadges ? `<div style="margin-top:5px;flex-wrap:wrap;display:flex;gap:3px;">${faseBadges}</div>` : ''}
+        ${desempateBadges ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;">${desempateBadges}</div>` : ''}
       </div>
       <div><div class="rank-pts">${r.pts}</div><div class="pts-lbl">puntos</div></div>
     </div>`;
