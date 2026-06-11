@@ -1107,13 +1107,18 @@ async function renderTabla() {
     return { tarjetas, esquinas };
   }
 
-  // Construir ranking
+  // Construir ranking — usa campo 'puntos' guardado en Firestore (consistente para admin y usuario)
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
     .map(u => {
       const bets  = todasLasApuestas.filter(a => a.uid === u.uid);
-      const fases = calcPuntosPorFase(bets);
-      const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
+      const total = bets.reduce((s,a) => s + (Number(a.puntos) || 0), 0);
+      // Fases: agrupar puntos guardados por fase
+      const fases = { grupos:0, octavos:0, cuartos:0, semis:0, final:0, campeon:0 };
+      bets.forEach(a => {
+        const p = Number(a.puntos) || 0;
+        if (p > 0) { const fase = getFase(a.partidoId); if (fases[fase] !== undefined) fases[fase] += p; }
+      });
       const nombre = u.nombre || u.email;
       const desemp = esAdmin ? calcDesempate(bets) : { tarjetas: 0, esquinas: 0 };
       return { nombre, pts: total, count: bets.length, fases,
