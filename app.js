@@ -1070,14 +1070,18 @@ async function renderTabla() {
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
     } else {
-      // Para usuarios normales: construir lista de participantes desde apuestas
+      // Para usuarios normales: leer todas las apuestas de Firestore para construir la tabla
+      const snapAll = await db.collection('apuestas').get();
+      const todasApuestas = snapAll.docs.map(d => ({id: d.id, ...d.data()}));
       const vistos = new Set();
-      apuestas.forEach(a => {
+      todasApuestas.forEach(a => {
         if (a.uid && a.nombre && !vistos.has(a.uid)) {
           vistos.add(a.uid);
-          todosUsuarios.push({ uid: a.uid, nombre: a.nombre, rol: 'user' });
+          todosUsuarios.push({ uid: a.uid, nombre: a.nombre, rol: 'user', _bets: [] });
         }
       });
+      // Adjuntar apuestas a cada usuario para calcular puntos
+      todosUsuarios.forEach(u => { u._bets = todasApuestas.filter(a => a.uid === u.uid); });
     }
   } catch(e) { console.error('Error cargando usuarios:', e); }
 
@@ -1104,7 +1108,7 @@ async function renderTabla() {
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
     .map(u => {
-      const bets  = apuestas.filter(a => a.uid === u.uid);
+      const bets  = u._bets || apuestas.filter(a => a.uid === u.uid);
       const fases = calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
