@@ -91,8 +91,6 @@ let apuestas    = [];
 let resultados  = {};
 let nextId      = 1;
 let unsubApuestas = null;
-let unsubTodasApuestas = null;
-let todasApuestasGlobal = [];
 
 const CRITERIOS_DEFAULT = [
   {id:"resultado_exacto",nombre:"Resultado exacto",  desc:"Marcador final correcto",icon:"🎯",pts:3,fijo:true},
@@ -356,14 +354,10 @@ function showAuth() {
 // SUSCRIPCIÓN TIEMPO REAL A APUESTAS
 function suscribirApuestas() {
   if (unsubApuestas) unsubApuestas();
-  if (unsubTodasApuestas) { unsubTodasApuestas(); unsubTodasApuestas = null; }
-
-  const esAdmin = currentUser.rol === "admin";
-  const ocultarParaUser = configGlobal.ocultarApuestas && !esAdmin;
-
-  // Suscripción principal: admin ve todas, usuario solo las suyas (para pestaña Apuestas)
   let query = db.collection("apuestas");
-  if (!esAdmin || ocultarParaUser) {
+  // Si ocultarApuestas está activo, usuario normal solo ve las suyas
+  const ocultarParaUser = configGlobal.ocultarApuestas && currentUser.rol !== "admin";
+  if (currentUser.rol !== "admin" || ocultarParaUser) {
     query = query.where("uid", "==", currentUser.uid);
   }
   unsubApuestas = query.onSnapshot(snap => {
@@ -372,13 +366,10 @@ function suscribirApuestas() {
       const nums = apuestas.map(a => Number(a.numId)||0);
       nextId = Math.max(...nums) + 1;
     }
-    if (esAdmin) todasApuestasGlobal = apuestas; // admin ya tiene todas
     renderApuestas();
     renderTabla();
     renderResultados();
   });
-
-  // Para usuarios normales: todasApuestasGlobal se carga en renderTabla bajo demanda
 }
 
 // AUTH FUNCIONES
@@ -1063,16 +1054,12 @@ async function renderTabla() {
   const container = document.getElementById("tabla-ranking");
   container.innerHTML = '<div class="empty" style="padding:24px">Cargando...</div>';
 
-  const esAdmin = currentUser.rol === 'admin';
-
-  // Admin: carga usuarios desde Firestore (tiene permisos)
-  // Usuario normal: agrupa directamente desde todas las apuestas (consulta pública)
+  // Cargar usuarios desde caché (reduce lecturas Firestore)
   let todosUsuarios = [];
-  let todasLasApuestas = apuestas;
-
   try {
-    if (esAdmin) {
-      todosUsuarios = await getUsuarios();
+    todosUsuarios = await getUsuarios();
+    // Stats admin
+    if (currentUser.rol === 'admin') {
       const total     = todosUsuarios.length;
       const invitados = todosUsuarios.filter(u => u.invitadoPor).length;
       const asociados = total - invitados;
@@ -1083,60 +1070,20 @@ async function renderTabla() {
       if (stInv) stInv.textContent = invitados;
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
-    } else {
-      const snap = await db.collection('apuestas').get();
-      todasLasApuestas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      const vistos = new Map();
-      todasLasApuestas.forEach(a => {
-        if (a.uid && a.nombre && !vistos.has(a.uid))
-          vistos.set(a.uid, { uid: a.uid, nombre: a.nombre, rol: 'user' });
-      });
-      todosUsuarios = [...vistos.values()];
     }
-  } catch(e) { console.error('Error cargando tabla:', e); }
+  } catch(e) { console.error('Error cargando usuarios:', e); }
 
-  // Calcular aciertos de desempate (tarjetas/esquinas) — solo para admin
-  function calcDesempate(bets) {
-    let tarjetas = 0, esquinas = 0;
-    bets.forEach(a => {
-      if (!a.partidoId || !resultados[a.partidoId]) return;
-      const r = resultados[a.partidoId];
-      const cfg = configPartidos[a.partidoId] || {};
-      if (cfg.tarjetas && a.tarjetasLocal !== undefined && r.tarjetasLocal !== undefined) {
-        if (Number(a.tarjetasLocal) === Number(r.tarjetasLocal) &&
-            Number(a.tarjetasVisitante) === Number(r.tarjetasVisitante)) tarjetas++;
-      }
-      if (cfg.esquinas && a.esquinasLocal !== undefined && r.esquinasLocal !== undefined) {
-        if (Number(a.esquinasLocal) === Number(r.esquinasLocal) &&
-            Number(a.esquinasVisitante) === Number(r.esquinasVisitante)) esquinas++;
-      }
-    });
-    return { tarjetas, esquinas };
-  }
-
-  // Construir ranking — usa campo 'puntos' guardado en Firestore (consistente para admin y usuario)
+  // Construir ranking con todos los usuarios
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
     .map(u => {
-      const bets  = todasLasApuestas.filter(a => a.uid === u.uid);
-      const total = bets.reduce((s,a) => s + (Number(a.puntos) || 0), 0);
-      // Fases: agrupar puntos guardados por fase
-      const fases = { grupos:0, octavos:0, cuartos:0, semis:0, final:0, campeon:0 };
-      bets.forEach(a => {
-        const p = Number(a.puntos) || 0;
-        if (p > 0) { const fase = getFase(a.partidoId); if (fases[fase] !== undefined) fases[fase] += p; }
-      });
+      const bets  = apuestas.filter(a => a.uid === u.uid);
+      const fases = calcPuntosPorFase(bets);
+      const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
-      const desemp = esAdmin ? calcDesempate(bets) : { tarjetas: 0, esquinas: 0 };
-      return { nombre, pts: total, count: bets.length, fases,
-               ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(),
-               tarjetas: desemp.tarjetas, esquinas: desemp.esquinas };
+      return { nombre, pts: total, count: bets.length, fases, ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase() };
     })
-    .sort((a,b) => b.pts-a.pts || b.tarjetas-a.tarjetas || b.esquinas-a.esquinas || b.count-a.count);
-
-  // Detectar empates en puntos (para mostrar desempate al admin)
-  const ptsSet = ranking.map(r => r.pts);
-  const empataConOtro = (pts) => ptsSet.filter(p => p === pts).length > 1;
+    .sort((a,b) => b.pts-a.pts || b.count-a.count);
 
   if (!ranking.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
   const colors = ["var(--oro)","#adb5bd","#cd7f32"];
@@ -1148,18 +1095,6 @@ async function renderTabla() {
         const icons  = {grupos:'⚽',octavos:'🔁',cuartos:'🏅',semis:'🌟',final:'🏆',campeon:'👑'};
         return `<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">${icons[k]||''} ${labels[k]||k}: <strong>${v}</strong></span>`;
       }).join('');
-
-    // Badges de desempate: solo admin, solo cuando hay empate real
-    let desempateBadges = '';
-    if (esAdmin && empataConOtro(r.pts)) {
-      if (r.tarjetas > 0)
-        desempateBadges += `<span title="Aciertos tarjetas amarillas" style="font-size:10px;background:#fdf3dc;color:#c8972b;padding:2px 7px;border-radius:8px;margin-right:3px;">🟨 ${r.tarjetas} tarjeta${r.tarjetas!==1?'s':''}</span>`;
-      if (r.esquinas > 0)
-        desempateBadges += `<span title="Aciertos tiros de esquina" style="font-size:10px;background:#e8eef7;color:var(--verde);padding:2px 7px;border-radius:8px;">🔄 ${r.esquinas} esquina${r.esquinas!==1?'s':''}</span>`;
-      if (!desempateBadges)
-        desempateBadges = `<span style="font-size:10px;background:#f4f4f4;color:var(--muted);padding:2px 7px;border-radius:8px;">⚖️ Empate</span>`;
-    }
-
     return `<div class="rank-row" style="flex-wrap:wrap;">
       <div class="rank-pos${i<3?" top":""}">${i+1}</div>
       <div style="width:38px;height:38px;border-radius:50%;background:${colors[i]||"var(--verde)"};color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${r.ini}</div>
@@ -1167,7 +1102,6 @@ async function renderTabla() {
         ${i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":""}${r.nombre}
         <div class="rank-sub">${r.count} apuesta${r.count!==1?"s":""}</div>
         ${faseBadges ? `<div style="margin-top:5px;flex-wrap:wrap;display:flex;gap:3px;">${faseBadges}</div>` : ''}
-        ${desempateBadges ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;">${desempateBadges}</div>` : ''}
       </div>
       <div><div class="rank-pts">${r.pts}</div><div class="pts-lbl">puntos</div></div>
     </div>`;
