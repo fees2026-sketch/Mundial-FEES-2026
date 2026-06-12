@@ -296,8 +296,8 @@ function showApp() {
   document.getElementById("main-content").style.display  = "";
   actualizarHeaderUsuario();
   renderPtsInfo();
-  // Cargar config de partidos temprano para que los campos de desempate aparezcan
-  cargarConfigPartidos().then(() => renderPartidos());
+  // Cargar resultados y config al entrar (también cubre re-login)
+  cargarResultados();
   suscribirApuestas();
   // Mostrar stats de admin solo para admins
   const statsAdmin = document.getElementById('stats-admin');
