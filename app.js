@@ -1057,9 +1057,19 @@ async function guardarResultado(pid) {
     res.esquinasLocal    = parseInt(document.getElementById("r-el-"+pid)?.value)||0;
     res.esquinasVisitante= parseInt(document.getElementById("r-ev-"+pid)?.value)||0;
   }
-  resultados[pid] = res;
-  // Guardar en Firestore
-  await db.collection("resultados").doc(pid).set(res);
+  // Preservar tarjetas/esquinas existentes si no se están ingresando nuevas
+  const existing = resultados[pid] || {};
+  if (!cfg.tarjetas && existing.tarjetasLocal !== undefined) {
+    res.tarjetasLocal     = existing.tarjetasLocal;
+    res.tarjetasVisitante = existing.tarjetasVisitante;
+  }
+  if (!cfg.esquinas && existing.esquinasLocal !== undefined) {
+    res.esquinasLocal     = existing.esquinasLocal;
+    res.esquinasVisitante = existing.esquinasVisitante;
+  }
+  resultados[pid] = { ...existing, ...res };
+  // Guardar en Firestore preservando campos existentes
+  await db.collection("resultados").doc(pid).set(res, { merge: true });
   // Recalcular puntos de TODAS las apuestas de este partido (incluye las nuevas)
   const snapAp = await db.collection("apuestas").where("partidoId","==",pid).get();
   const batchPts = db.batch();
