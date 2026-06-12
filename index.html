@@ -443,6 +443,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
         <button id="asubt-puntos" data-nav-admin="puntos" onclick="adminSubTab('puntos')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#127942; Puntuaci&oacute;n</button>
         <button id="asubt-config" data-nav-admin="config" onclick="adminSubTab('config')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#9881;&#65039; Partidos</button>
         <button id="asubt-textos" data-nav-admin="textos" onclick="adminSubTab('textos')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#9997;&#65039; Textos</button>
+        <button id="asubt-apuestas-usr" data-nav-admin="apuestas-usr" onclick="adminSubTab('apuestas-usr')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;">&#128101;&#127183; Ver apuestas</button>
       </div>
     </div>
     <div id="admin-panel-usuarios">
@@ -587,6 +588,24 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
         </div>
       </div>
       <div class="card"><div class="card-title">Vista previa</div><div id="pts-preview"></div></div>
+    </div>
+    <div id="admin-panel-apuestas-usr" style="display:none;">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">&#128101;&#127183; Apuestas por usuario</div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <input type="text" id="filtro-usr-nombre" placeholder="&#128269; Buscar usuario..." oninput="renderApuestasPorUsuario()" style="flex:1;min-width:160px;"/>
+          <select id="filtro-usr-tipo" onchange="renderApuestasPorUsuario()" style="width:auto;">
+            <option value="">Todos los tipos</option>
+            <option value="grupo">Partidos</option>
+            <option value="campeon">Campeón</option>
+            <option value="subcampeon">Subcampeón</option>
+            <option value="tercer_puesto">3er Puesto</option>
+            <option value="goleador">Goleador</option>
+            <option value="valla">Valla</option>
+          </select>
+        </div>
+        <div id="lista-apuestas-por-usuario"></div>
+      </div>
     </div>
   </div>
 </div>

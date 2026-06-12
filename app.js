@@ -1243,7 +1243,7 @@ async function eliminarCriterio(i) {
 
 // ADMIN USUARIOS
 function adminSubTab(tab) {
-  ["usuarios","puntos","config","textos"].forEach(t => {
+  ["usuarios","puntos","config","textos","apuestas-usr"].forEach(t => {
     document.getElementById("admin-panel-"+t).style.display = tab===t?"block":"none";
     const base = "flex:1;padding:10px 8px;font-size:11px;font-weight:600;border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid ";
     const el = document.getElementById("asubt-"+t);
@@ -1253,6 +1253,80 @@ function adminSubTab(tab) {
   if(tab==="config")  { renderConfigPartidos(); initConfigFiltros(); loadCierreGlobalUI(); }
   if(tab==="textos")  renderTextos();
   if(tab==="usuarios")renderUsuarios();
+  if(tab==="apuestas-usr") renderApuestasPorUsuario();
+}
+
+function renderApuestasPorUsuario() {
+  const container = document.getElementById('lista-apuestas-por-usuario');
+  if (!container) return;
+  const filtroNombre = (document.getElementById('filtro-usr-nombre')?.value || '').toLowerCase();
+  const filtroTipo   = document.getElementById('filtro-usr-tipo')?.value || '';
+
+  // Agrupar apuestas por usuario
+  const porUsuario = new Map();
+  apuestas.forEach(a => {
+    if (!a.uid || !a.nombre) return;
+    if (filtroTipo && a.tipo !== filtroTipo) return;
+    if (!porUsuario.has(a.uid)) porUsuario.set(a.uid, { nombre: a.nombre, bets: [] });
+    porUsuario.get(a.uid).bets.push(a);
+  });
+
+  // Filtrar por nombre
+  const usuarios = [...porUsuario.values()]
+    .filter(u => !filtroNombre || u.nombre.toLowerCase().includes(filtroNombre))
+    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  if (!usuarios.length) {
+    container.innerHTML = '<div class="empty" style="padding:24px;">Sin resultados</div>';
+    return;
+  }
+
+  container.innerHTML = usuarios.map(u => {
+    const pts = u.bets.reduce((s,a) => s + calcPuntos(a), 0);
+    const ini = u.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+    const baldosas = u.bets.map(a => {
+      const p = calcPuntos(a);
+      const res = resultados[a.partidoId] || {};
+      const tieneResultado = a.partidoId && res.local !== undefined;
+      const acerto = p > 0;
+      let titulo = '', detalle = '', desempateHtml = '';
+
+      if (a.tipo === 'grupo') {
+        const partido = PARTIDOS.find(x => x.id === a.partidoId);
+        titulo = partido ? `${partido.local} vs ${partido.visitante}` : (a.local + ' vs ' + a.visitante);
+        detalle = `${a.golLocal ?? '?'} – ${a.golVisitante ?? '?'}`;
+        if (tieneResultado) detalle += ` <span style="color:var(--muted);font-size:10px;">(${res.local}-${res.visitante})</span>`;
+        // Desempate
+        if (a.tarjetasLocal !== undefined)
+          desempateHtml += `<span style="font-size:10px;background:#fdf3dc;color:#c8972b;padding:1px 5px;border-radius:6px;margin-right:3px;">🟨 ${a.tarjetasLocal}–${a.tarjetasVisitante}</span>`;
+        if (a.esquinasLocal !== undefined)
+          desempateHtml += `<span style="font-size:10px;background:#e8eef7;color:var(--verde);padding:1px 5px;border-radius:6px;">🔄 ${a.esquinasLocal}–${a.esquinasVisitante}</span>`;
+      } else if (a.tipo === 'campeon')       { titulo = '🏆 Campeón';    detalle = a.campeon || a.equipoElegido || '—'; }
+      else if (a.tipo === 'subcampeon')      { titulo = '🥈 Subcampeón'; detalle = a.subcampeon || a.equipoElegido || '—'; }
+      else if (a.tipo === 'tercer_puesto')   { titulo = '🥉 3er Puesto'; detalle = a.tercerPuesto || a.equipoElegido || '—'; }
+      else if (a.tipo === 'goleador')        { titulo = '⚽ Goleador';   detalle = (a.goleador || a.equipoElegido || '—') + (a.golesGoleador !== undefined ? ` (${a.golesGoleador}g)` : ''); }
+      else if (a.tipo === 'valla')           { titulo = '🧤 Valla';      detalle = (a.valla || a.equipoElegido || '—') + (a.golesValla !== undefined ? ` (${a.golesValla}g)` : ''); }
+
+      const bg = tieneResultado ? (acerto ? '#e8f7ed' : '#fef0f0') : 'var(--bg)';
+      const border = tieneResultado ? (acerto ? '#a3d9b8' : '#fecaca') : 'var(--border)';
+      return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 10px;min-width:110px;max-width:140px;flex:0 0 auto;">
+        <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${titulo}">${titulo}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--verde);">${detalle}</div>
+        ${desempateHtml ? `<div style="margin-top:4px;">${desempateHtml}</div>` : ''}
+        ${p > 0 ? `<div style="font-size:10px;color:#1a6b3c;font-weight:700;margin-top:4px;">+${p} pts</div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--verde);color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ini}</div>
+        <div style="flex:1;font-weight:600;font-size:14px;">${u.nombre}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--verde);">${pts} pts</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">${baldosas}</div>
+    </div>`;
+  }).join('');
 }
 
 function initConfigFiltros() {
