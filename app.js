@@ -973,8 +973,20 @@ function renderResultados() {
           <div class="res-match">${p.grupo} · ${p.local} vs ${p.visitante}</div>
           <div class="res-form"><span style="font-weight:600;">${p.local}</span><div class="res-done">${r.local} – ${r.visitante}</div><span style="font-weight:600;">${p.visitante}</span>
           ${isAdmin ? `<button class="btn btn-outline btn-sm" onclick="borrarResultado('${p.id}')" style="margin-left:auto;">✕</button>` : ''}</div>
-          ${cfg.tarjetas ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">🟨 Tarjetas: ${r.tarjetasLocal||0}–${r.tarjetasVisitante||0}</div>` : ''}
-          ${cfg.esquinas ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">🔄 Esquinas: ${r.esquinasLocal||0}–${r.esquinasVisitante||0}</div>` : ''}
+          ${isAdmin && cfg.tarjetas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:600;color:var(--muted);">🟨 Tarjetas:</span>
+            <input type="number" id="r-tl-${p.id}" min="0" max="20" value="${r.tarjetasLocal??0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <span style="font-size:12px;color:var(--muted);">vs</span>
+            <input type="number" id="r-tv-${p.id}" min="0" max="20" value="${r.tarjetasVisitante??0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <button class="btn btn-sm btn-primary" onclick="guardarDesempate('${p.id}')" style="padding:4px 10px;font-size:11px;">Guardar</button>
+          </div>` : (!isAdmin && cfg.tarjetas ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">🟨 Tarjetas: ${r.tarjetasLocal||0}–${r.tarjetasVisitante||0}</div>` : '')}
+          ${isAdmin && cfg.esquinas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+            <span style="font-size:12px;font-weight:600;color:var(--muted);">🔄 Esquinas:</span>
+            <input type="number" id="r-el-${p.id}" min="0" max="30" value="${r.esquinasLocal??0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <span style="font-size:12px;color:var(--muted);">vs</span>
+            <input type="number" id="r-ev-${p.id}" min="0" max="30" value="${r.esquinasVisitante??0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <button class="btn btn-sm btn-primary" onclick="guardarDesempate('${p.id}')" style="padding:4px 10px;font-size:11px;">Guardar</button>
+          </div>` : (!isAdmin && cfg.esquinas ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">🔄 Esquinas: ${r.esquinasLocal||0}–${r.esquinasVisitante||0}</div>` : '')}
           <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
         return `<div class="res-card">
           <div class="res-match">${p.grupo} · ${p.local} vs ${p.visitante}</div>
@@ -988,15 +1000,15 @@ function renderResultados() {
           </div>` : `<div class="res-form"><span style="font-weight:600;font-size:13px;">${p.local}</span><div style="color:var(--muted);margin:0 8px;">Sin resultado aún</div><span style="font-weight:600;font-size:13px;">${p.visitante}</span></div>`}
           ${cfg.tarjetas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:600;color:var(--muted);">🟨 Tarjetas:</span>
-            <input type="number" id="r-tl-${p.id}" min="0" max="20" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-tl-${p.id}" min="0" max="20" value="${res?.tarjetasLocal ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
             <span style="font-size:12px;color:var(--muted);">vs</span>
-            <input type="number" id="r-tv-${p.id}" min="0" max="20" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-tv-${p.id}" min="0" max="20" value="${res?.tarjetasVisitante ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
           </div>` : ''}
           ${cfg.esquinas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:600;color:var(--muted);">🔄 Esquinas:</span>
-            <input type="number" id="r-el-${p.id}" min="0" max="30" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-el-${p.id}" min="0" max="30" value="${res?.esquinasLocal ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
             <span style="font-size:12px;color:var(--muted);">vs</span>
-            <input type="number" id="r-ev-${p.id}" min="0" max="30" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-ev-${p.id}" min="0" max="30" value="${res?.esquinasVisitante ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
           </div>` : ''}
           <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
       }).join("")}</div>`;
@@ -1031,6 +1043,25 @@ async function guardarResultado(pid) {
   await batchPts.commit();
   toast(`✓ Resultado: ${l}–${v}`);
   renderResultados(); renderApuestas(); renderTabla(); renderPartidos();
+}
+
+async function guardarDesempate(pid) {
+  if (!currentUser || currentUser.rol !== 'admin') return;
+  const cfg = configPartidos[pid] || {};
+  const update = { ts: firebase.firestore.FieldValue.serverTimestamp() };
+  if (cfg.tarjetas) {
+    update.tarjetasLocal     = parseInt(document.getElementById("r-tl-"+pid)?.value)||0;
+    update.tarjetasVisitante = parseInt(document.getElementById("r-tv-"+pid)?.value)||0;
+  }
+  if (cfg.esquinas) {
+    update.esquinasLocal     = parseInt(document.getElementById("r-el-"+pid)?.value)||0;
+    update.esquinasVisitante = parseInt(document.getElementById("r-ev-"+pid)?.value)||0;
+  }
+  // Merge para no sobreescribir goles
+  await db.collection("resultados").doc(pid).set(update, { merge: true });
+  resultados[pid] = { ...resultados[pid], ...update };
+  toast("✓ Desempate guardado");
+  renderResultados(); renderTabla();
 }
 
 async function borrarResultado(pid) {
