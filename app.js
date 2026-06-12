@@ -354,17 +354,22 @@ function showAuth() {
 // SUSCRIPCIÓN TIEMPO REAL A APUESTAS
 function suscribirApuestas() {
   if (unsubApuestas) unsubApuestas();
-  let query = db.collection("apuestas");
-  // Si ocultarApuestas está activo, usuario normal solo ve las suyas
-  const ocultarParaUser = configGlobal.ocultarApuestas && currentUser.rol !== "admin";
-  if (currentUser.rol !== "admin" || ocultarParaUser) {
-    query = query.where("uid", "==", currentUser.uid);
-  }
-  unsubApuestas = query.onSnapshot(snap => {
+  // Siempre cargar todas las apuestas — el filtrado ocurre en renderApuestas()
+  // ocultarApuestas controla qué se muestra en pantalla, no qué se lee
+  unsubApuestas = db.collection("apuestas").onSnapshot(snap => {
     apuestas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    if (apuestas.length > 0) {
-      const nums = apuestas.map(a => Number(a.numId)||0);
-      nextId = Math.max(...nums) + 1;
+    if (currentUser.rol !== 'admin') {
+      // nextId solo importa para las apuestas propias
+      const propias = apuestas.filter(a => a.uid === currentUser.uid);
+      if (propias.length > 0) {
+        const nums = propias.map(a => Number(a.numId)||0);
+        nextId = Math.max(...nums) + 1;
+      }
+    } else {
+      if (apuestas.length > 0) {
+        const nums = apuestas.map(a => Number(a.numId)||0);
+        nextId = Math.max(...nums) + 1;
+      }
     }
     renderApuestas();
     renderTabla();
@@ -854,7 +859,10 @@ function renderApuestas() {
   }
   const fT=document.getElementById("fil-tipo").value, fP=filP.value, fG2=filG.value;
   const fPart = filPart ? filPart.value : '';
+  // Si ocultarApuestas está activo, usuario normal solo ve sus propias apuestas
+  const soloMias = configGlobal.ocultarApuestas && currentUser.rol !== 'admin';
   let lista = apuestas.filter(a=>
+    (!soloMias || a.uid === currentUser.uid) &&
     (!fT||a.tipo===fT) &&
     (!fP||a.nombre===fP) &&
     (!fG2||a.grupo===fG2) &&
@@ -1054,12 +1062,12 @@ async function renderTabla() {
   const container = document.getElementById("tabla-ranking");
   container.innerHTML = '<div class="empty" style="padding:24px">Cargando...</div>';
 
-  // Cargar usuarios desde caché (reduce lecturas Firestore)
+  // apuestas ya contiene todas (suscribirApuestas carga sin filtro)
+  const esAdmin = currentUser.rol === 'admin';
   let todosUsuarios = [];
   try {
-    todosUsuarios = await getUsuarios();
-    // Stats admin
-    if (currentUser.rol === 'admin') {
+    if (esAdmin) {
+      todosUsuarios = await getUsuarios();
       const total     = todosUsuarios.length;
       const invitados = todosUsuarios.filter(u => u.invitadoPor).length;
       const asociados = total - invitados;
@@ -1070,8 +1078,16 @@ async function renderTabla() {
       if (stInv) stInv.textContent = invitados;
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
+    } else {
+      // Construir participantes desde apuestas ya en memoria
+      const vistos = new Map();
+      apuestas.forEach(a => {
+        if (a.uid && a.nombre && !vistos.has(a.uid))
+          vistos.set(a.uid, { uid: a.uid, nombre: a.nombre, rol: 'user' });
+      });
+      todosUsuarios = [...vistos.values()];
     }
-  } catch(e) { console.error('Error cargando usuarios:', e); }
+  } catch(e) { console.error('Error cargando tabla:', e); }
 
   // Partido más cercano con desempate habilitado (tarjetas o esquinas)
   const partidosConDesempate = Object.entries(configPartidos)
@@ -1491,8 +1507,7 @@ async function syncResultados() {
         return (lm === g.home_team_name_en && vm === g.away_team_name_en) ||
                (lm === g.away_team_name_en && vm === g.home_team_name_en);
       });
-      if (!partido) { console.log('[SYNC] No encontrado:', g.home_team_name_en, 'vs', g.away_team_name_en); return; }
-      console.log('[SYNC] Encontrado:', partido.id, g.home_team_name_en, g.home_score, '-', g.away_score, g.away_team_name_en);
+      if (!partido) return;
       const lm = TEAM_MAP[partido.local] || partido.local;
       const esLocal = lm === g.home_team_name_en;
       const r = {
