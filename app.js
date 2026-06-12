@@ -1676,15 +1676,9 @@ async function syncResultados() {
         visitante: esLocal ? parseInt(g.away_score) : parseInt(g.home_score),
         ts: firebase.firestore.FieldValue.serverTimestamp()
       };
-      // No sobreescribir si ya tiene tarjetas/esquinas guardadas manualmente
-      const existing = resultados[partido.id] || {};
-      const merged = { ...r };
-      if (existing.tarjetasLocal    !== undefined) merged.tarjetasLocal    = existing.tarjetasLocal;
-      if (existing.tarjetasVisitante !== undefined) merged.tarjetasVisitante = existing.tarjetasVisitante;
-      if (existing.esquinasLocal    !== undefined) merged.esquinasLocal    = existing.esquinasLocal;
-      if (existing.esquinasVisitante !== undefined) merged.esquinasVisitante = existing.esquinasVisitante;
-      resultados[partido.id] = merged;
-      batch.set(db.collection("resultados").doc(partido.id), merged);
+      // Usar merge:true para no sobreescribir tarjetas/esquinas guardadas manualmente
+      resultados[partido.id] = { ...(resultados[partido.id]||{}), ...r };
+      batch.set(db.collection("resultados").doc(partido.id), r, { merge: true });
       actualizados++;
     });
     await batch.commit();
