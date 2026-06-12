@@ -430,6 +430,11 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
         <div class="card-title" id="sec-tabla-titulo" style="margin:0;">Clasificaci&oacute;n</div>
         <div style="font-size:11px;color:var(--muted);">Tiempo real</div>
       </div>
+      <div id="filtro-tabla-partido" style="display:none;padding:0 14px 10px;">
+        <select id="sel-filtro-tabla-partido" onchange="renderTabla()" style="width:100%;font-size:13px;">
+          <option value="">🏆 Ranking general</option>
+        </select>
+      </div>
       <div id="tabla-ranking"></div>
     </div>
   </div>

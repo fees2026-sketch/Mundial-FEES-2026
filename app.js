@@ -1064,6 +1064,24 @@ async function renderTabla() {
 
   // apuestas ya contiene todas (suscribirApuestas carga sin filtro)
   const esAdmin = currentUser.rol === 'admin';
+
+  // Filtro por partido (solo admin)
+  const filtroDiv = document.getElementById('filtro-tabla-partido');
+  const selPartido = document.getElementById('sel-filtro-tabla-partido');
+  if (filtroDiv) filtroDiv.style.display = esAdmin ? 'block' : 'none';
+  if (esAdmin && selPartido) {
+    // Llenar opciones con partidos que tienen resultado
+    const partidosConRes = Object.keys(resultados).filter(pid => PARTIDOS.find(p=>p.id===pid));
+    const valActual = selPartido.value;
+    selPartido.innerHTML = '<option value="">🏆 Ranking general</option>' +
+      partidosConRes.map(pid => {
+        const p = PARTIDOS.find(x=>x.id===pid);
+        const label = p ? `${p.local} vs ${p.visitante}` : pid;
+        return `<option value="${pid}"${pid===valActual?' selected':''}>${label}</option>`;
+      }).join('');
+    if (valActual && partidosConRes.includes(valActual)) selPartido.value = valActual;
+  }
+  const filtroPartido = esAdmin && selPartido ? selPartido.value : '';
   let todosUsuarios = [];
   try {
     if (esAdmin) {
@@ -1107,8 +1125,11 @@ async function renderTabla() {
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
     .map(u => {
-      const bets  = apuestas.filter(a => a.uid === u.uid);
-      const fases = calcPuntosPorFase(bets);
+      // Si hay filtro de partido, solo contar puntos de ese partido
+      const bets = filtroPartido
+        ? apuestas.filter(a => a.uid === u.uid && a.partidoId === filtroPartido)
+        : apuestas.filter(a => a.uid === u.uid);
+      const fases = filtroPartido ? {} : calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
 
