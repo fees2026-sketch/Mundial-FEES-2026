@@ -91,6 +91,8 @@ let apuestas    = [];
 let resultados  = {};
 let nextId      = 1;
 let unsubApuestas = null;
+let tablaApuestasCache = [];
+let tablaApuestasCacheTs = 0;
 
 const CRITERIOS_DEFAULT = [
   {id:"resultado_exacto",nombre:"Resultado exacto",  desc:"Marcador final correcto",icon:"🎯",pts:3,fijo:true},
@@ -354,22 +356,19 @@ function showAuth() {
 // SUSCRIPCIÓN TIEMPO REAL A APUESTAS
 function suscribirApuestas() {
   if (unsubApuestas) unsubApuestas();
-  // Siempre cargar todas las apuestas — el filtrado ocurre en renderApuestas()
-  // ocultarApuestas controla qué se muestra en pantalla, no qué se lee
-  unsubApuestas = db.collection("apuestas").onSnapshot(snap => {
+  const esAdmin = currentUser.rol === 'admin';
+  const ocultarParaUser = configGlobal.ocultarApuestas && !esAdmin;
+  // Admin: todas las apuestas en tiempo real
+  // Usuario: solo las suyas (rendimiento)
+  let query = db.collection("apuestas");
+  if (!esAdmin || ocultarParaUser) {
+    query = query.where("uid", "==", currentUser.uid);
+  }
+  unsubApuestas = query.onSnapshot(snap => {
     apuestas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    if (currentUser.rol !== 'admin') {
-      // nextId solo importa para las apuestas propias
-      const propias = apuestas.filter(a => a.uid === currentUser.uid);
-      if (propias.length > 0) {
-        const nums = propias.map(a => Number(a.numId)||0);
-        nextId = Math.max(...nums) + 1;
-      }
-    } else {
-      if (apuestas.length > 0) {
-        const nums = apuestas.map(a => Number(a.numId)||0);
-        nextId = Math.max(...nums) + 1;
-      }
+    if (apuestas.length > 0) {
+      const nums = apuestas.map(a => Number(a.numId)||0);
+      nextId = Math.max(...nums) + 1;
     }
     renderApuestas();
     renderTabla();
@@ -508,7 +507,21 @@ function showTab(id, btn) {
   document.getElementById("tab-"+id).classList.add("active");
   btn.classList.add("active");
   if(id==="apuestas")  renderApuestas();
-  if(id==="tabla")     renderTabla();
+  if(id==="tabla") {
+    if (currentUser.rol !== 'admin') {
+      // Refrescar cache de apuestas para la tabla (solo al abrir la pestaña)
+      const ahora = Date.now();
+      if (ahora - tablaApuestasCacheTs > 60000) { // refrescar cada 60s
+        db.collection('apuestas').get().then(snap => {
+          tablaApuestasCache = snap.docs.map(d => ({id: d.id, ...d.data()}));
+          tablaApuestasCacheTs = Date.now();
+          renderTabla();
+        }).catch(() => { tablaApuestasCache = apuestas; renderTabla(); });
+        return; // esperar a que cargue
+      }
+    }
+    renderTabla();
+  }
   if(id==="resultados")renderResultados();
   if(id==="partidos")  renderPartidos();
   if(id==="admin")     { adminSubTab('usuarios'); }
@@ -1128,9 +1141,10 @@ async function renderTabla() {
       if (stAso) stAso.textContent = asociados;
       document.getElementById("st-partic").textContent = total;
     } else {
-      // Construir participantes desde apuestas ya en memoria
+      // Usar cache de apuestas para tabla (cargado al abrir pestaña)
+      const fuente = tablaApuestasCache.length > 0 ? tablaApuestasCache : apuestas;
       const vistos = new Map();
-      apuestas.forEach(a => {
+      fuente.forEach(a => {
         if (a.uid && a.nombre && !vistos.has(a.uid))
           vistos.set(a.uid, { uid: a.uid, nombre: a.nombre, rol: 'user' });
       });
@@ -1157,9 +1171,10 @@ async function renderTabla() {
     .filter(u => u.rol !== 'admin')
     .map(u => {
       // Si hay filtro de partido, solo contar puntos de ese partido
+      const fuenteApuestas = esAdmin ? apuestas : (tablaApuestasCache.length > 0 ? tablaApuestasCache : apuestas);
       const bets = filtroPartido
-        ? apuestas.filter(a => a.uid === u.uid && a.partidoId === filtroPartido)
-        : apuestas.filter(a => a.uid === u.uid);
+        ? fuenteApuestas.filter(a => a.uid === u.uid && a.partidoId === filtroPartido)
+        : fuenteApuestas.filter(a => a.uid === u.uid);
       const fases = filtroPartido ? {} : calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
