@@ -1013,15 +1013,15 @@ function renderResultados() {
           </div>` : `<div class="res-form"><span style="font-weight:600;font-size:13px;">${p.local}</span><div style="color:var(--muted);margin:0 8px;">Sin resultado aún</div><span style="font-weight:600;font-size:13px;">${p.visitante}</span></div>`}
           ${cfg.tarjetas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:600;color:var(--muted);">🟨 Tarjetas:</span>
-            <input type="number" id="r-tl-${p.id}" min="0" max="20" value="${res?.tarjetasLocal ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-tl-${p.id}" min="0" max="20" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
             <span style="font-size:12px;color:var(--muted);">vs</span>
-            <input type="number" id="r-tv-${p.id}" min="0" max="20" value="${res?.tarjetasVisitante ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-tv-${p.id}" min="0" max="20" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
           </div>` : ''}
           ${cfg.esquinas ? `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
             <span style="font-size:12px;font-weight:600;color:var(--muted);">🔄 Esquinas:</span>
-            <input type="number" id="r-el-${p.id}" min="0" max="30" value="${res?.esquinasLocal ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-el-${p.id}" min="0" max="30" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
             <span style="font-size:12px;color:var(--muted);">vs</span>
-            <input type="number" id="r-ev-${p.id}" min="0" max="30" value="${res?.esquinasVisitante ?? 0}" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
+            <input type="number" id="r-ev-${p.id}" min="0" max="30" value="0" style="width:50px;text-align:center;padding:4px;font-size:13px;font-weight:600;border:1px solid var(--border);border-radius:6px;"/>
           </div>` : ''}
           <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
       }).join("")}</div>`;
