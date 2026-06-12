@@ -84,6 +84,15 @@ const PARTIDOS = [
 const EQUIPOS = [...new Set(PARTIDOS.flatMap(p=>[p.local,p.visitante]))].sort();
 const GRUPOS  = [...new Set(PARTIDOS.map(p=>p.grupo))];
 const FECHAS  = [...new Set(PARTIDOS.map(p=>p.fecha))];
+// Mapa para ordenar fechas cronológicamente
+const FECHA_ORDER = {};
+const MESES = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12,
+               Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12};
+FECHAS.forEach(f => {
+  const [d, m] = f.split(' ');
+  FECHA_ORDER[f] = (MESES[m]||0)*100 + parseInt(d);
+});
+const FECHAS_SORTED = [...FECHAS].sort((a,b) => FECHA_ORDER[a] - FECHA_ORDER[b]);
 
 // ESTADO
 let currentUser = null;
@@ -144,6 +153,10 @@ async function getUsuarios(forzar = false) {
 function estaAbierto(partidoId, tipo) {
   const cfg = configPartidos[partidoId];
   const ahora = new Date();
+  // Si el usuario tiene apertura individual habilitada, siempre puede apostar
+  if (currentUser && currentUser.apuestasAbiertas) return true;
+  // Si hay apertura global habilitada por admin, todos pueden apostar
+  if (configGlobal.apuestasAbiertas) return true;
   // Cierre individual del partido
   if (cfg && cfg.cierreISO) return new Date(cfg.cierreISO) > ahora;
   // Cierre global por tipo
@@ -259,12 +272,13 @@ auth.onAuthStateChanged(async user => {
     const snap = await db.collection("usuarios").doc(user.uid).get();
     const perfil = snap.exists ? snap.data() : {};
     currentUser = {
-      uid:         user.uid,
-      email:       user.email,
-      nombre:      perfil.nombre || user.email,
-      celular:     perfil.celular || "",
-      rol:         perfil.rol || "user",
-      invitadoPor: perfil.invitadoPor || null
+      uid:           user.uid,
+      email:         user.email,
+      nombre:        perfil.nombre || user.email,
+      celular:       perfil.celular || "",
+      rol:           perfil.rol || "user",
+      invitadoPor:   perfil.invitadoPor || null,
+      apuestasAbiertas: perfil.apuestasAbiertas || false
     };
     showApp();
   } else {
@@ -797,7 +811,7 @@ function calcPuntos(a) {
 function renderPartidos() {
   const fF = document.getElementById("fil-fecha").value;
   const fG = document.getElementById("fil-grupo-p").value;
-  const lista = PARTIDOS.filter(p=>(!fF||p.fecha===fF)&&(!fG||p.grupo===fG));
+  const lista = PARTIDOS.filter(p=>(!fF||p.fecha===fF)&&(!fG||p.grupo===fG)).sort((a,b)=>FECHA_ORDER[a.fecha]-FECHA_ORDER[b.fecha]||(PARTIDOS.indexOf(a)-PARTIDOS.indexOf(b)));
   const fechas = [...new Set(lista.map(p=>p.fecha))];
   document.getElementById("partidos-container").innerHTML = fechas.map(f => {
     const ps = lista.filter(p=>p.fecha===f);
@@ -972,7 +986,7 @@ function renderResultados() {
   if (!lista.length && !especialesHtml) { container.innerHTML='<div class="empty"><div class="empty-ico">⏳</div>Registra apuestas para ver partidos aquí</div>'; return; }
   container.innerHTML = especialesHtml;
   if (!lista.length) return;
-  const fechas = [...new Set(lista.map(p=>p.fecha))];
+  const fechas = [...new Set(lista.map(p=>p.fecha))].sort((a,b)=>FECHA_ORDER[a]-FECHA_ORDER[b]);
   container.innerHTML = fechas.map(f => {
     const ps = lista.filter(p=>p.fecha===f);
     return `<div class="fecha-bloque">
@@ -1358,11 +1372,36 @@ function adminSubTab(tab) {
   if(tab==="apuestas-usr") renderApuestasPorUsuario();
 }
 
+async function toggleAperturaGlobal() {
+  const abierto = configGlobal.apuestasAbiertas;
+  await db.collection('config').doc('global').update({ apuestasAbiertas: !abierto });
+  configGlobal.apuestasAbiertas = !abierto;
+  toast(abierto ? '🔒 Apuestas cerradas globalmente' : '🔓 Apuestas abiertas globalmente');
+  renderApuestasPorUsuario();
+}
+
+async function toggleAperturaUsuario(uid, nombre) {
+  const snap = await db.collection('usuarios').doc(uid).get();
+  const actual = snap.data()?.apuestasAbiertas || false;
+  await db.collection('usuarios').doc(uid).update({ apuestasAbiertas: !actual });
+  toast(!actual ? `🔓 Apuestas abiertas para ${nombre}` : `🔒 Apuestas cerradas para ${nombre}`);
+  renderApuestasPorUsuario();
+}
+
 function renderApuestasPorUsuario() {
   const container = document.getElementById('lista-apuestas-por-usuario');
   if (!container) return;
   const filtroNombre = (document.getElementById('filtro-usr-nombre')?.value || '').toLowerCase();
   const filtroTipo   = document.getElementById('filtro-usr-tipo')?.value || '';
+  // Toggle global
+  const globalAbierto = configGlobal.apuestasAbiertas;
+  const toggleGlobal = document.getElementById('toggle-apertura-global');
+  if (toggleGlobal) {
+    toggleGlobal.textContent = globalAbierto ? '🔓 Apuestas abiertas (cerrar todo)' : '🔒 Apuestas cerradas (abrir todo)';
+    toggleGlobal.style.background = globalAbierto ? '#e8f7ed' : '#fef0f0';
+    toggleGlobal.style.color = globalAbierto ? '#1a6b3c' : '#dc2626';
+    toggleGlobal.style.borderColor = globalAbierto ? '#a3d9b8' : '#fecaca';
+  }
 
   // Agrupar apuestas por usuario
   const porUsuario = new Map();
@@ -1424,7 +1463,10 @@ function renderApuestasPorUsuario() {
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <div style="width:36px;height:36px;border-radius:50%;background:var(--verde);color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ini}</div>
         <div style="flex:1;font-weight:600;font-size:14px;">${u.nombre}</div>
-        <div style="font-size:13px;font-weight:700;color:var(--verde);">${pts} pts</div>
+        <div style="font-size:13px;font-weight:700;color:var(--verde);margin-right:6px;">${pts} pts</div>
+        <button onclick="toggleAperturaUsuario('${u.uid}','${u.nombre.replace(/'/g,"\'")}')" 
+          style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--bg);color:var(--muted);" 
+          title="Abrir/cerrar apuestas para este usuario">🔓/🔒</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">${baldosas}</div>
     </div>`;

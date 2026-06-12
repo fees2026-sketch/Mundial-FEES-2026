@@ -597,6 +597,9 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
     <div id="admin-panel-apuestas-usr" style="display:none;">
       <div class="card" style="margin-bottom:14px;">
         <div class="card-title">&#128101;&#127183; Apuestas por usuario</div>
+        <div style="margin-bottom:12px;">
+          <button id="toggle-apertura-global" onclick="toggleAperturaGlobal()" style="width:100%;padding:10px;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#fef0f0;color:#dc2626;">&#128274; Apuestas cerradas (abrir todo)</button>
+        </div>
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
           <input type="text" id="filtro-usr-nombre" placeholder="&#128269; Buscar usuario..." oninput="renderApuestasPorUsuario()" style="flex:1;min-width:160px;"/>
           <select id="filtro-usr-tipo" onchange="renderApuestasPorUsuario()" style="width:auto;">
