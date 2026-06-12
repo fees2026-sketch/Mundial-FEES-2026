@@ -1132,6 +1132,23 @@ async function renderTabla() {
       const fases = filtroPartido ? {} : calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
+      // Desempate por partido filtrado
+      let desFiltro = { tarjetas: 0, esquinas: 0 };
+      if (filtroPartido) {
+        const apFiltro = bets[0];
+        const resFiltro = resultados[filtroPartido] || {};
+        const cfgFiltro = configPartidos[filtroPartido] || {};
+        if (apFiltro && cfgFiltro.tarjetas && resFiltro.tarjetasLocal !== undefined) {
+          if (Number(apFiltro.tarjetasLocal) === Number(resFiltro.tarjetasLocal) &&
+              Number(apFiltro.tarjetasVisitante) === Number(resFiltro.tarjetasVisitante))
+            desFiltro.tarjetas = 1;
+        }
+        if (apFiltro && cfgFiltro.esquinas && resFiltro.esquinasLocal !== undefined) {
+          if (Number(apFiltro.esquinasLocal) === Number(resFiltro.esquinasLocal) &&
+              Number(apFiltro.esquinasVisitante) === Number(resFiltro.esquinasVisitante))
+            desFiltro.esquinas = 1;
+        }
+      }
 
       // Desempate: solo el partido más cercano con desempate activo
       const desempate = {};
@@ -1147,9 +1164,17 @@ async function renderTabla() {
       }
 
       return { nombre, pts: total, count: bets.length, fases, desempate,
-               ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase() };
+               ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(),
+               desFiltroTarjetas: desFiltro.tarjetas, desFiltroEsquinas: desFiltro.esquinas };
     })
-    .sort((a,b) => b.pts-a.pts || b.count-a.count);
+    .sort((a,b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (filtroPartido) {
+        if (b.desFiltroTarjetas !== a.desFiltroTarjetas) return b.desFiltroTarjetas - a.desFiltroTarjetas;
+        if (b.desFiltroEsquinas !== a.desFiltroEsquinas) return b.desFiltroEsquinas - a.desFiltroEsquinas;
+      }
+      return b.count - a.count;
+    });
 
   if (!ranking.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
   const colors = ["var(--oro)","#adb5bd","#cd7f32"];
@@ -1162,11 +1187,21 @@ async function renderTabla() {
         return `<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">${icons[k]||''} ${labels[k]||k}: <strong>${v}</strong></span>`;
       }).join('');
 
-    // Badges de desempate — solo admin, solo partidos con desempate configurado
+    // Badges de desempate — solo admin
     let desempateBadges = '';
     if (currentUser.rol === 'admin') {
-      Object.entries(r.desempate).forEach(([pid, d]) => {
+      // Si hay filtro de partido activo, mostrar desempate de ese partido
+      const pidsBadge = filtroPartido ? [filtroPartido] : Object.keys(r.desempate);
+      pidsBadge.forEach(pid => {
+        const cfg = configPartidos[pid] || {};
         const res = resultados[pid] || {};
+        const apFiltro = apuestas.find(a => a.uid === (apuestas.find(x=>x.nombre===r.nombre)?.uid) && a.partidoId === pid);
+        const d = r.desempate[pid] || {
+          tarjetas: cfg.tarjetas, esquinas: cfg.esquinas,
+          tl: apFiltro?.tarjetasLocal, tv: apFiltro?.tarjetasVisitante,
+          el: apFiltro?.esquinasLocal, ev: apFiltro?.esquinasVisitante,
+          label: (() => { const p=PARTIDOS.find(x=>x.id===pid); return p?`${p.local} vs ${p.visitante}`:pid; })()
+        };
         if (d.tarjetas) {
           const tl = d.tl ?? '?', tv = d.tv ?? '?';
           const acerto = res.tarjetasLocal !== undefined && Number(d.tl) === Number(res.tarjetasLocal) && Number(d.tv) === Number(res.tarjetasVisitante);
