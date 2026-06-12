@@ -1491,7 +1491,8 @@ async function syncResultados() {
         return (lm === g.home_team_name_en && vm === g.away_team_name_en) ||
                (lm === g.away_team_name_en && vm === g.home_team_name_en);
       });
-      if (!partido) return;
+      if (!partido) { console.log('[SYNC] No encontrado:', g.home_team_name_en, 'vs', g.away_team_name_en); return; }
+      console.log('[SYNC] Encontrado:', partido.id, g.home_team_name_en, g.home_score, '-', g.away_score, g.away_team_name_en);
       const lm = TEAM_MAP[partido.local] || partido.local;
       const esLocal = lm === g.home_team_name_en;
       const r = {
