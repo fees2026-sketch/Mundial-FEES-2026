@@ -385,8 +385,12 @@ function suscribirApuestas() {
       nextId = Math.max(...nums) + 1;
     }
     renderApuestas();
-    renderTabla();
     renderResultados();
+    // Tabla: para usuarios normales solo renderizar si ya está visible (evita .get() innecesario)
+    const tabActiva = document.querySelector('.tab-btn.active')?.dataset?.tab;
+    if (currentUser.rol === 'admin' || tabActiva === 'tabla') {
+      renderTabla();
+    }
   });
 }
 
@@ -2889,7 +2893,6 @@ async function recalcularTodosPuntos() {
 document.addEventListener('DOMContentLoaded', () => {
   init();
   setTimeout(() => updateTipo(), 100); // Initialize form state after DOM ready
-  cargarResultados();
   verificarInvitacion();
   // Fallback: si onAuthStateChanged no responde en 6s, mostrar login
   setTimeout(() => {
