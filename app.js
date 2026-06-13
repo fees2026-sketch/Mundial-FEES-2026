@@ -102,6 +102,7 @@ let nextId      = 1;
 let unsubApuestas = null;
 let tablaApuestasCache = [];
 let tablaApuestasCacheTs = 0;
+let appReady = false; // true cuando cargarResultados terminó
 
 const CRITERIOS_DEFAULT = [
   {id:"resultado_exacto",nombre:"Resultado exacto",  desc:"Marcador final correcto",icon:"🎯",pts:3,fijo:true},
@@ -359,6 +360,7 @@ function actualizarHeaderUsuario() {
 }
 
 function showAuth() {
+  appReady = false;
   document.getElementById("auth-overlay").style.display  = "flex";
   document.getElementById("main-header").style.display   = "none";
   document.getElementById("main-nav").style.display      = "none";
@@ -384,9 +386,9 @@ function suscribirApuestas() {
       const nums = apuestas.map(a => Number(a.numId)||0);
       nextId = Math.max(...nums) + 1;
     }
+    if (!appReady) return; // esperar a que cargarResultados termine
     renderApuestas();
     renderResultados();
-    // Tabla: para usuarios normales solo renderizar si ya está visible (evita .get() innecesario)
     const tabActiva = document.querySelector('.tab-btn.active')?.dataset?.tab;
     if (currentUser.rol === 'admin' || tabActiva === 'tabla') {
       renderTabla();
@@ -1114,13 +1116,17 @@ async function borrarResultado(pid) {
 
 // Cargar resultados de Firestore al iniciar
 async function cargarResultados() {
-  const snap = await db.collection("resultados").get();
-  snap.forEach(doc => { resultados[doc.id] = doc.data(); });
-  await cargarConfigPartidos();
-  await cargarTextos();
-  await cargarCriterios();
-  await verificarEliminacion();
-  await checkEliminadoActual();
+  // Cargar todo en paralelo para mayor velocidad
+  const [snapRes] = await Promise.all([
+    db.collection("resultados").get(),
+    cargarConfigPartidos(),
+    cargarTextos(),
+    cargarCriterios()
+  ]);
+  snapRes.forEach(doc => { resultados[doc.id] = doc.data(); });
+  // Estas dependen de datos cargados arriba
+  await Promise.all([verificarEliminacion(), checkEliminadoActual()]);
+  appReady = true;
   renderPartidos(); renderResultados();
 }
 
