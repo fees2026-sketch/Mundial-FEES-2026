@@ -1213,20 +1213,25 @@ async function renderTabla() {
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
       // Desempate por partido filtrado
-      let desFiltro = { tarjetas: 0, esquinas: 0 };
+      let desFiltro = { tarjetas: 0, esquinas: 0, distTarjetas: 999, distEsquinas: 999 };
       if (filtroPartido) {
         const apFiltro = bets[0];
         const resFiltro = resultados[filtroPartido] || {};
         const cfgFiltro = configPartidos[filtroPartido] || {};
         if (apFiltro && cfgFiltro.tarjetas && resFiltro.tarjetasLocal !== undefined) {
-          if (Number(apFiltro.tarjetasLocal) === Number(resFiltro.tarjetasLocal) &&
-              Number(apFiltro.tarjetasVisitante) === Number(resFiltro.tarjetasVisitante))
-            desFiltro.tarjetas = 1;
+          const exacto = Number(apFiltro.tarjetasLocal) === Number(resFiltro.tarjetasLocal) &&
+                         Number(apFiltro.tarjetasVisitante) === Number(resFiltro.tarjetasVisitante);
+          desFiltro.tarjetas = exacto ? 1 : 0;
+          // Distancia = suma de diferencias absolutas (menor es mejor)
+          desFiltro.distTarjetas = Math.abs(Number(apFiltro.tarjetasLocal) - Number(resFiltro.tarjetasLocal)) +
+                                   Math.abs(Number(apFiltro.tarjetasVisitante) - Number(resFiltro.tarjetasVisitante));
         }
         if (apFiltro && cfgFiltro.esquinas && resFiltro.esquinasLocal !== undefined) {
-          if (Number(apFiltro.esquinasLocal) === Number(resFiltro.esquinasLocal) &&
-              Number(apFiltro.esquinasVisitante) === Number(resFiltro.esquinasVisitante))
-            desFiltro.esquinas = 1;
+          const exacto = Number(apFiltro.esquinasLocal) === Number(resFiltro.esquinasLocal) &&
+                         Number(apFiltro.esquinasVisitante) === Number(resFiltro.esquinasVisitante);
+          desFiltro.esquinas = exacto ? 1 : 0;
+          desFiltro.distEsquinas = Math.abs(Number(apFiltro.esquinasLocal) - Number(resFiltro.esquinasLocal)) +
+                                   Math.abs(Number(apFiltro.esquinasVisitante) - Number(resFiltro.esquinasVisitante));
         }
       }
 
@@ -1245,13 +1250,20 @@ async function renderTabla() {
 
       return { nombre, pts: total, count: bets.length, fases, desempate,
                ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(),
-               desFiltroTarjetas: desFiltro.tarjetas, desFiltroEsquinas: desFiltro.esquinas };
+               desFiltroTarjetas: desFiltro.tarjetas, desFiltroEsquinas: desFiltro.esquinas,
+               distTarjetas: desFiltro.distTarjetas, distEsquinas: desFiltro.distEsquinas };
     })
     .sort((a,b) => {
       if (b.pts !== a.pts) return b.pts - a.pts;
       if (filtroPartido) {
-        if (b.desFiltroTarjetas !== a.desFiltroTarjetas) return b.desFiltroTarjetas - a.desFiltroTarjetas;
-        if (b.desFiltroEsquinas !== a.desFiltroEsquinas) return b.desFiltroEsquinas - a.desFiltroEsquinas;
+        // 1. Acertó ambos exactos
+        const aAmbo = a.desFiltroTarjetas + a.desFiltroEsquinas;
+        const bAmbo = b.desFiltroTarjetas + b.desFiltroEsquinas;
+        if (bAmbo !== aAmbo) return bAmbo - aAmbo;
+        // 2. Más cercano en combinación (menor distancia total)
+        const aDist = (a.distTarjetas === 999 ? 0 : a.distTarjetas) + (a.distEsquinas === 999 ? 0 : a.distEsquinas);
+        const bDist = (b.distTarjetas === 999 ? 0 : b.distTarjetas) + (b.distEsquinas === 999 ? 0 : b.distEsquinas);
+        if (aDist !== bDist) return aDist - bDist;
       }
       return b.count - a.count;
     });
