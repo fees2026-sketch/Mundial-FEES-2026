@@ -322,9 +322,16 @@ function showApp() {
       if (!snap.exists) return;
       const data = snap.data();
       const rolAnterior = currentUser.rol;
-      currentUser.rol         = data.rol || "user";
-      currentUser.nombre      = data.nombre || currentUser.nombre;
-      currentUser.invitadoPor = data.invitadoPor || null;
+      const abiertaAnterior = currentUser.apuestasAbiertas;
+      currentUser.rol             = data.rol || "user";
+      currentUser.nombre          = data.nombre || currentUser.nombre;
+      currentUser.invitadoPor     = data.invitadoPor || null;
+      currentUser.apuestasAbiertas = data.apuestasAbiertas || false;
+      // Si cambió el estado de apertura, re-renderizar partidos para mostrar/ocultar botones
+      if (abiertaAnterior !== currentUser.apuestasAbiertas) {
+        renderPartidos();
+        renderApuestas();
+      }
       actualizarHeaderUsuario();
       // Actualizar visibilidad del botón invitar
       const btnInvitar = document.getElementById('btn-invitar');
