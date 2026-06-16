@@ -1447,7 +1447,7 @@ function renderApuestasPorUsuario() {
   apuestas.forEach(a => {
     if (!a.uid || !a.nombre) return;
     if (filtroTipo && a.tipo !== filtroTipo) return;
-    if (!porUsuario.has(a.uid)) porUsuario.set(a.uid, { nombre: a.nombre, bets: [] });
+    if (!porUsuario.has(a.uid)) porUsuario.set(a.uid, { uid: a.uid, nombre: a.nombre, bets: [] });
     porUsuario.get(a.uid).bets.push(a);
   });
 
