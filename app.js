@@ -1648,9 +1648,23 @@ async function renderUsuarios() {
           </div>
         </div>` : '';
 
+    // Filtro de búsqueda
+    const filtro = (document.getElementById('busq-usuarios')?.value || '').toLowerCase();
+    const usersFiltrados = filtro
+      ? users.filter(u => (u.nombre||'').toLowerCase().includes(filtro) ||
+                          (u.email||'').toLowerCase().includes(filtro) ||
+                          (u.celular||'').toLowerCase().includes(filtro) ||
+                          (u.invitadoPor||'').toLowerCase().includes(filtro))
+      : users;
+
     container.innerHTML = `<div class="card" style="padding:0;overflow:hidden;">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
+        <input type="text" id="busq-usuarios" placeholder="🔍 Buscar por nombre, correo, celular o invitado por..." 
+          oninput="renderUsuarios()" value="${filtro}"
+          style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;"/>
+      </div>
       ${btnRecordatorio}
-      ${users.map(u=>{
+      ${usersFiltrados.map(u=>{
         const ini = u.nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
         const isMe = u.uid===currentUser.uid;
         const tieneApuesta = conApuestas.has(u.uid);
@@ -1674,6 +1688,7 @@ async function renderUsuarios() {
           </div>
         </div>`;
       }).join("")}
+      ${filtro && !usersFiltrados.length ? '<div class="empty" style="padding:20px;">Sin resultados</div>' : ''}
     </div>`;
   } catch(e) { container.innerHTML='<div class="empty">Error al cargar usuarios: '+e.message+'</div>'; }
   // Load invitations
