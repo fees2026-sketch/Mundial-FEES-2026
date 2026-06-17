@@ -1627,12 +1627,17 @@ function renderConfigPartidos() {
   }).join('');
 }
 
-async function renderUsuarios() {
+let _usuariosCache = []; // cache para evitar llamadas repetidas al buscar
+
+async function renderUsuarios(forceReload = false) {
   const container = document.getElementById("lista-usuarios");
-  container.innerHTML = '<div class="empty">Cargando...</div>';
   try {
-    // Forzar refresh del caché al abrir panel admin
-    const users = await getUsuarios(true);
+    // Solo cargar de Firestore si es necesario
+    if (forceReload || !_usuariosCache.length) {
+      container.innerHTML = '<div class="empty">Cargando...</div>';
+      _usuariosCache = await getUsuarios(true);
+    }
+    const users = _usuariosCache;
     if (!users.length) { container.innerHTML='<div class="empty"><div class="empty-ico">👥</div>No hay usuarios</div>'; return; }
     // Usar apuestas en memoria
     const conApuestas = new Set(apuestas.map(a=>a.uid));
@@ -1648,19 +1653,20 @@ async function renderUsuarios() {
           </div>
         </div>` : '';
 
-    // Filtro de búsqueda
+    // Filtro de búsqueda — en memoria, sin llamadas a Firestore
     const filtro = (document.getElementById('busq-usuarios')?.value || '').toLowerCase();
     const usersFiltrados = filtro
       ? users.filter(u => (u.nombre||'').toLowerCase().includes(filtro) ||
                           (u.email||'').toLowerCase().includes(filtro) ||
                           (u.celular||'').toLowerCase().includes(filtro) ||
-                          (u.invitadoPor||'').toLowerCase().includes(filtro))
+                          (u.invitadoPor||'').toLowerCase().includes(filtro) ||
+                          (u.invitadoPorNombre||'').toLowerCase().includes(filtro))
       : users;
 
     container.innerHTML = `<div class="card" style="padding:0;overflow:hidden;">
       <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
         <input type="text" id="busq-usuarios" placeholder="🔍 Buscar por nombre, correo, celular o invitado por..." 
-          oninput="renderUsuarios()" value="${filtro}"
+          oninput="renderUsuarios(false)" value="${filtro}"
           style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;"/>
       </div>
       ${btnRecordatorio}
@@ -1676,6 +1682,7 @@ async function renderUsuarios() {
               ${!tieneApuesta?'<span style="background:#fee2e2;color:var(--rojo);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;">Sin apuestas</span>':''}
             </div>
             <div style="font-size:12px;color:var(--muted);">📱 ${u.celular||"—"} · ${u.email}</div>
+            ${u.invitadoPorNombre || u.invitadoPor ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">👤 Invitado por: ${u.invitadoPorNombre || u.invitadoPor}</div>` : ""}
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
             ${u.celular&&!tieneApuesta?`<button class="btn btn-gold btn-sm" onclick="enviarWhatsApp('${u.celular}','${u.nombre}')" title="Enviar recordatorio WhatsApp">📲</button>`:''}
@@ -1702,14 +1709,14 @@ async function toggleAdmin(uid, nombre, rolActual) {
   try {
     await db.collection("usuarios").doc(uid).update({ rol: nuevoRol });
     toast(`✓ ${nombre} ahora es ${nuevoRol === "admin" ? "administrador" : "participante"}`);
-    renderUsuarios();
+    renderUsuarios(true);
   } catch(e) { toast("Error: " + e.message); }
 }
 
 async function eliminarUsuario(uid, nombre) {
   if(!confirm(`¿Eliminar a ${nombre}? Sus apuestas se mantendrán.`)) return;
   await db.collection("usuarios").doc(uid).delete();
-  toast("Usuario eliminado"); renderUsuarios();
+  toast("Usuario eliminado"); renderUsuarios(true);
 }
 
 function enviarWhatsApp(celular, nombre) {
