@@ -84,6 +84,12 @@ const PARTIDOS = [
 const EQUIPOS = [...new Set(PARTIDOS.flatMap(p=>[p.local,p.visitante]))].sort();
 const GRUPOS  = [...new Set(PARTIDOS.map(p=>p.grupo))];
 const FECHAS  = [...new Set(PARTIDOS.map(p=>p.fecha))];
+const FECHA_ORDER = {};
+const MESES = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12,Ene:1,Abr:4,Ago:8,Dic:12};
+FECHAS.forEach(f => {
+  const parts = f.trim().split(' ');
+  FECHA_ORDER[f] = (MESES[parts[1]]||0)*100 + (parseInt(parts[0])||0);
+});
 
 // ESTADO
 let currentUser = null;
