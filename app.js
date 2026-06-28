@@ -820,8 +820,9 @@ function renderPartidos(soloFase) {
       <div class="fecha-header"><div class="fecha-badge">📅 ${f}</div><div class="fecha-line"></div><div style="font-size:12px;color:var(--muted);white-space:nowrap;">${ps.length} partido${ps.length!==1?"s":""}</div></div>
       <div class="partidos-grid">${ps.map(p => {
         const res = resultados[p.id];
-        const abierto = estaAbierto(p.id, 'grupo');
-        const tr = tiempoRestante(p.id, 'grupo');
+        const tipoPartido = p.id.startsWith('R16_') ? 'elim' : 'grupo';
+        const abierto = estaAbierto(p.id, tipoPartido);
+        const tr = tiempoRestante(p.id, tipoPartido);
         const miApuesta = apuestas.find(a => a.uid === currentUser.uid && a.partidoId === p.id);
         let cierreBadge = '';
         if (tr === 'cerrado') cierreBadge = '<span class="cierre-badge cierre-cerrado">⛔ Cerrado</span>';
@@ -1372,6 +1373,7 @@ async function renderUsuarios() {
           <div style="width:38px;height:38px;border-radius:50%;background:${isAdmin?"var(--oro)":"var(--verde)"};color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ini}</div>
           <div style="flex:1;">
             <div style="font-weight:600;font-size:14px;">${u.nombre}${isAdmin?'<span class="admin-badge">Admin</span>':''}
+              ${u.eliminado?'<span style="background:#fee2e2;color:#c0392b;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;">⛔ Eliminado</span>':''}
               ${!tieneApuesta?'<span style="background:#fee2e2;color:var(--rojo);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;">Sin apuestas</span>':''}
             </div>
             <div style="font-size:12px;color:var(--muted);">📱 ${u.celular||"—"} · ${u.email}</div>
@@ -1382,6 +1384,7 @@ async function renderUsuarios() {
               <button class="btn btn-sm ${isAdmin?"btn-outline":"btn-gold"}" onclick="toggleAdmin('${u.uid}','${u.nombre}','${u.rol}')" title="${isAdmin?"Quitar admin":"Hacer admin"}">
                 ${isAdmin?"👤 Quitar admin":"👑 Hacer admin"}
               </button>
+              ${u.eliminado ? `<button class="btn btn-sm" onclick="rehabilitarEliminado('${u.uid}','${u.nombre.replace(/'/g,"\'")}')" style="background:#fdf3dc;color:#c8972b;border:1px solid #f0d89a;border-radius:6px;font-size:11px;padding:3px 8px;cursor:pointer;" title="Rehabilitar para 16avos">♻️ Rehabilitar</button>` : ''}
               <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('${u.uid}','${u.nombre}')" title="Eliminar">🗑</button>
             `:'<span style="font-size:11px;color:var(--muted);">Tú</span>'}
           </div>
@@ -1391,6 +1394,18 @@ async function renderUsuarios() {
   } catch(e) { container.innerHTML='<div class="empty">Error al cargar usuarios: '+e.message+'</div>'; }
   // Load invitations
   renderLinksInvitacion();
+}
+
+async function rehabilitarEliminado(uid, nombre) {
+  if (!confirm(`¿Rehabilitar a ${nombre} para participar en 16avos?`)) return;
+  await db.collection('usuarios').doc(uid).update({
+    eliminado: false,
+    eliminadoFase: firebase.firestore.FieldValue.delete(),
+    rehabilitado: true,
+    rehabilitadoEn: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  toast(`✓ ${nombre} rehabilitado`);
+  renderUsuarios(true);
 }
 
 async function toggleAdmin(uid, nombre, rolActual) {
@@ -2510,7 +2525,8 @@ async function guardarApuestaModal(pid) {
   if (!p) return;
 
   if (currentUser.eliminado) { toast('⛔ Fuiste eliminado en la fase de grupos'); return; }
-  if (!estaAbierto(pid, 'grupo')) { toast('⛔ Apuestas cerradas'); return; }
+  const tipoApuesta = pid.startsWith('R16_') ? 'elim' : 'grupo';
+  if (!estaAbierto(pid, tipoApuesta)) { toast('⛔ Apuestas cerradas'); return; }
 
   const cfg = configPartidos[pid] || {};
   const gl  = parseInt(document.getElementById('ma-gl')?.value) || 0;
