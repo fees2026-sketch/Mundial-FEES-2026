@@ -122,6 +122,7 @@ const CRITERIOS_DEFAULT = [
   {id:"subcampeon",      nombre:"Subcampeón acertado",desc:"Acertó el subcampeón",  icon:"🥈",pts:3,fijo:true},
   {id:"tercer_puesto",   nombre:"3er puesto acertado",  desc:"Acertó el tercer puesto",       icon:"🥉",pts:2,fijo:true},
   {id:"goleador",        nombre:"Goleador fase grupos",  desc:"Acertó el goleador de la fase", icon:"⚽",pts:4,fijo:true},
+  {id:"goleador_mundial", nombre:"Goleador Mundial",         desc:"Acertó el goleador del Mundial", icon:"🌍",pts:6,fijo:true},
   {id:"valla",           nombre:"Valla menos vencida",   desc:"Acertó la valla menos vencida", icon:"🧤",pts:4,fijo:true},
 ];
 let criterios = CRITERIOS_DEFAULT.map(c=>({...c}));
@@ -551,6 +552,7 @@ function updateTipo() {
       subcampeon:    "Equipo subcampeón",
       tercer_puesto: "Equipo tercer puesto",
       goleador:      "Nombre del goleador",
+      goleador_mundial: "Nombre del goleador",
       valla:         "Equipo valla menos vencida"
     };
     lbl.textContent = lblMap[t] || "Selección";
@@ -562,6 +564,7 @@ function updateTipo() {
       subcampeon:    "Ej: Francia",
       tercer_puesto: "Ej: Brasil",
       goleador:      "Ej: Kylian Mbappé",
+      goleador_mundial: "Ej: Kylian Mbappé",
       valla:         "Ej: Francia"
     };
     inp.placeholder = phMap[t] || "Escribe aquí";
@@ -569,7 +572,7 @@ function updateTipo() {
   // Mostrar/ocultar campo de número según tipo
   const wrapNum = document.getElementById('wrap-num-especial');
   if (wrapNum) {
-    if (t === 'goleador') {
+    if (t === 'goleador' || t === 'goleador_mundial') {
       wrapNum.style.display = 'block';
       const lbl2 = wrapNum.querySelector('label');
       if (lbl2) lbl2.textContent = 'Número de goles';
@@ -664,8 +667,8 @@ async function registrar() {
     ts: new Date().toLocaleString("es-CO"),
     creado: firebase.firestore.FieldValue.serverTimestamp()
   };
-  if (["campeon","subcampeon","tercer_puesto","goleador","valla"].includes(tipo)) {
-    if ((tipo==="goleador"||tipo==="valla") && !estaAbiertoEspecial(tipo)) {
+  if (["campeon","subcampeon","tercer_puesto","goleador","goleador_mundial","valla"].includes(tipo)) {
+    if ((tipo==="goleador"||tipo==="goleador_mundial"||tipo==="valla") && !estaAbiertoEspecial(tipo)) {
       toast("⛔ Las apuestas para " + tipo + " están cerradas");
       return;
     }
@@ -679,6 +682,10 @@ async function registrar() {
     if (tipo === "goleador") {
       a.goleador = c;
       a.golesGoleador = parseInt(document.getElementById('inp-num-especial')?.value) || 0;
+    }
+    if (tipo === "goleador_mundial") {
+      a.goleador_mundial = c;
+      a.golesGoleadorMundial = parseInt(document.getElementById('inp-num-especial')?.value) || 0;
     }
     if (tipo === "valla") {
       a.valla = c;
@@ -783,6 +790,11 @@ function calcPuntos(a) {
     const r = resultados["goleador"];
     if (!r || !a.goleador) return 0;
     return a.goleador.toLowerCase() === r.jugador.toLowerCase() ? getPts("goleador") : 0;
+  }
+  if (a.tipo==="goleador_mundial") {
+    const r = resultados["goleador_mundial"];
+    if (!r || !a.goleador_mundial) return 0;
+    return a.goleador_mundial.toLowerCase() === r.jugador.toLowerCase() ? getPts("goleador_mundial") : 0;
   }
   if (a.tipo==="valla") {
     const r = resultados["valla"];
@@ -902,6 +914,7 @@ function renderApuestas() {
     else if(a.tipo==="subcampeon")   detalle="🥈 Subcampeón: "+(a.subcampeon||a.equipoElegido||"");
     else if(a.tipo==="tercer_puesto")detalle="🥉 3er Puesto: "+(a.tercerPuesto||a.equipoElegido||"");
     else if(a.tipo==="goleador")     detalle="⚽ Goleador: "+(a.goleador||a.equipoElegido||"")+(a.golesGoleador!==undefined?" · "+a.golesGoleador+" goles":"");
+    else if(a.tipo==="goleador_mundial") detalle="🌍 Gol. Mundial: "+(a.goleador_mundial||a.equipoElegido||"")+(a.golesGoleadorMundial!==undefined?" · "+a.golesGoleadorMundial+" goles":"");
     else if(a.tipo==="valla")        detalle="🧤 Valla: "+(a.valla||a.equipoElegido||"")+(a.golesValla!==undefined?" · "+a.golesValla+" goles en contra":"");
     else { detalle=a.local+" vs "+a.visitante+(a.grupo?" ("+a.grupo+")":""); if(a.tipo==="grupo") score=a.golLocal+"–"+a.golVisitante; }
     // Mostrar desempate solo para las propias apuestas
@@ -944,7 +957,7 @@ function renderResultados() {
   const container = document.getElementById("lista-resultados");
 
   // Sección especial para campeón, subcampeón y tercer puesto
-  const tieneEspeciales = apuestas.some(a=>['campeon','subcampeon','tercer_puesto','goleador','valla'].includes(a.tipo));
+  const tieneEspeciales = apuestas.some(a=>['campeon','subcampeon','tercer_puesto','goleador','goleador_mundial','valla'].includes(a.tipo));
   let especialesHtml = '';
   if (tieneEspeciales) {
     const especiales = [
@@ -952,6 +965,7 @@ function renderResultados() {
       {id:'subcampeon',   label:'Subcampeón',          icon:'🥈', field:'subcampeon'},
       {id:'tercer_puesto',label:'Tercer puesto',       icon:'🥉', field:'tercerPuesto'},
       {id:'goleador',     label:'Goleador fase grupos',icon:'⚽', field:'goleador', esJugador:true},
+      {id:'goleador_mundial',label:'Goleador Mundial',    icon:'🌍', field:'goleador_mundial', esJugador:true},
       {id:'valla',        label:'Valla menos vencida', icon:'🧤', field:'valla'},
     ];
     especialesHtml = `<div class="card" style="margin-bottom:14px;">
@@ -2256,7 +2270,7 @@ async function guardarResultadoEspecial(tipo) {
   const val = document.getElementById('res-'+tipo)?.value.trim();
   if (!val) { toast('⚠ Ingresa el valor'); return; }
   // Goleador guarda como jugador, los demás como equipo
-  const data = tipo === 'goleador'
+  const data = (tipo === 'goleador' || tipo === 'goleador_mundial')
     ? { jugador: val, ts: firebase.firestore.FieldValue.serverTimestamp() }
     : { equipo: val,  ts: firebase.firestore.FieldValue.serverTimestamp() };
   resultados[tipo] = data;
@@ -2293,6 +2307,8 @@ function estaAbiertoEspecial(tipo) {
   const ahora = new Date();
   if (tipo === 'goleador' && configGlobal.cierreGoleador)
     return new Date(configGlobal.cierreGoleador) > ahora;
+  if (tipo === 'goleador_mundial' && configGlobal.cierreGoleadorMundial)
+    return new Date(configGlobal.cierreGoleadorMundial) > ahora;
   if (tipo === 'valla' && configGlobal.cierreValla)
     return new Date(configGlobal.cierreValla) > ahora;
   return true;
