@@ -79,39 +79,11 @@ const PARTIDOS = [
   {id:"L4",grupo:"Grupo L",local:"Panamá",visitante:"Croacia",fecha:"23 Jun",sede:"Toronto"},
   {id:"L5",grupo:"Grupo L",local:"Croacia",visitante:"Ghana",fecha:"27 Jun",sede:"Filadelfia"},
   {id:"L6",grupo:"Grupo L",local:"Panamá",visitante:"Inglaterra",fecha:"27 Jun",sede:"Nueva York"},
-  // 16avos de final
-  {id:"R16_1", grupo:"16avos de Final",local:"Sudáfrica",      visitante:"Canadá",              fecha:"28 Jun",sede:"Los Ángeles"},
-  {id:"R16_2", grupo:"16avos de Final",local:"Brasil",          visitante:"Japón",               fecha:"29 Jun",sede:"Houston"},
-  {id:"R16_3", grupo:"16avos de Final",local:"Alemania",        visitante:"Paraguay",            fecha:"29 Jun",sede:"Boston"},
-  {id:"R16_4", grupo:"16avos de Final",local:"Países Bajos",    visitante:"Marruecos",           fecha:"29 Jun",sede:"Monterrey"},
-  {id:"R16_5", grupo:"16avos de Final",local:"Costa de Marfil", visitante:"Noruega",             fecha:"30 Jun",sede:"Dallas"},
-  {id:"R16_6", grupo:"16avos de Final",local:"Francia",         visitante:"Suecia",              fecha:"30 Jun",sede:"Nueva York"},
-  {id:"R16_7", grupo:"16avos de Final",local:"México",          visitante:"Ecuador",             fecha:"30 Jun",sede:"Ciudad de México"},
-  {id:"R16_8", grupo:"16avos de Final",local:"Inglaterra",      visitante:"RD del Congo",        fecha:"1 Jul", sede:"Atlanta"},
-  {id:"R16_9", grupo:"16avos de Final",local:"Bélgica",         visitante:"Senegal",             fecha:"1 Jul", sede:"Seattle"},
-  {id:"R16_10",grupo:"16avos de Final",local:"Estados Unidos",  visitante:"Bosnia y Herz.",      fecha:"1 Jul", sede:"San Francisco"},
-  {id:"R16_11",grupo:"16avos de Final",local:"España",          visitante:"Argelia",             fecha:"2 Jul", sede:"Kansas City"},
-  {id:"R16_12",grupo:"16avos de Final",local:"Portugal",        visitante:"Croacia",             fecha:"2 Jul", sede:"Filadelfia"},
-  {id:"R16_13",grupo:"16avos de Final",local:"Suiza",           visitante:"Irán",                fecha:"3 Jul", sede:"Vancouver"},
-  {id:"R16_14",grupo:"16avos de Final",local:"Australia",       visitante:"Egipto",              fecha:"3 Jul", sede:"Dallas"},
-  {id:"R16_15",grupo:"16avos de Final",local:"Argentina",       visitante:"Cabo Verde",          fecha:"3 Jul", sede:"Miami"},
-  {id:"R16_16",grupo:"16avos de Final",local:"Colombia",        visitante:"Ghana",               fecha:"3 Jul", sede:"Kansas City"},
 ];
 
 const EQUIPOS = [...new Set(PARTIDOS.flatMap(p=>[p.local,p.visitante]))].sort();
 const GRUPOS  = [...new Set(PARTIDOS.map(p=>p.grupo))];
 const FECHAS  = [...new Set(PARTIDOS.map(p=>p.fecha))];
-// Mapa para ordenar fechas cronológicamente
-const FECHA_ORDER = {};
-const MESES = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12,
-               Ene:1,Abr:4,Ago:8,Dic:12};
-FECHAS.forEach(f => {
-  const parts = f.trim().split(' ');
-  const d = parseInt(parts[0])||0;
-  const m = MESES[parts[1]]||0;
-  FECHA_ORDER[f] = m*100 + d;
-});
-const FECHAS_SORTED = [...FECHAS].sort((a,b) => FECHA_ORDER[a] - FECHA_ORDER[b]);
 
 // ESTADO
 let currentUser = null;
@@ -534,7 +506,6 @@ function showTab(id, btn) {
   if(id==="tabla")     renderTabla();
   if(id==="resultados")renderResultados();
   if(id==="partidos")  renderPartidos();
-  if(id==="dieciseisavos") renderPartidos16avos();
   if(id==="admin")     { adminSubTab('usuarios'); }
 }
 
@@ -805,24 +776,19 @@ function calcPuntos(a) {
 }
 
 // RENDER PARTIDOS
-function renderPartidos(soloFase) {
-  const fF = soloFase ? '' : document.getElementById("fil-fecha").value;
-  const fG = soloFase ? '' : document.getElementById("fil-grupo-p").value;
-  const containerId = soloFase === '16avos' ? 'partidos-16avos-container' : 'partidos-container';
-  const lista = PARTIDOS.filter(p => {
-    if (soloFase === '16avos') return p.id.startsWith('R16_');
-    return (!fF||p.fecha===fF)&&(!fG||p.grupo===fG)&&!p.id.startsWith('R16_');
-  }).sort((a,b)=>(FECHA_ORDER[a.fecha]||0)-(FECHA_ORDER[b.fecha]||0)||(PARTIDOS.indexOf(a)-PARTIDOS.indexOf(b)));
-  const fechas = [...new Set(lista.map(p=>p.fecha))].sort((a,b)=>(FECHA_ORDER[a]||0)-(FECHA_ORDER[b]||0));
-  document.getElementById(containerId).innerHTML = fechas.map(f => {
+function renderPartidos() {
+  const fF = document.getElementById("fil-fecha").value;
+  const fG = document.getElementById("fil-grupo-p").value;
+  const lista = PARTIDOS.filter(p=>(!fF||p.fecha===fF)&&(!fG||p.grupo===fG));
+  const fechas = [...new Set(lista.map(p=>p.fecha))];
+  document.getElementById("partidos-container").innerHTML = fechas.map(f => {
     const ps = lista.filter(p=>p.fecha===f);
     return `<div class="fecha-bloque">
       <div class="fecha-header"><div class="fecha-badge">📅 ${f}</div><div class="fecha-line"></div><div style="font-size:12px;color:var(--muted);white-space:nowrap;">${ps.length} partido${ps.length!==1?"s":""}</div></div>
       <div class="partidos-grid">${ps.map(p => {
         const res = resultados[p.id];
-        const tipoPartido = p.id.startsWith('R16_') ? 'elim' : 'grupo';
-        const abierto = estaAbierto(p.id, tipoPartido);
-        const tr = tiempoRestante(p.id, tipoPartido);
+        const abierto = estaAbierto(p.id, 'grupo');
+        const tr = tiempoRestante(p.id, 'grupo');
         const miApuesta = apuestas.find(a => a.uid === currentUser.uid && a.partidoId === p.id);
         let cierreBadge = '';
         if (tr === 'cerrado') cierreBadge = '<span class="cierre-badge cierre-cerrado">⛔ Cerrado</span>';
@@ -860,8 +826,6 @@ function renderPartidos(soloFase) {
       }).join("")}</div></div>`;
   }).join("");
 }
-
-function renderPartidos16avos() { renderPartidos("16avos"); }
 
 function preselectPartido(pid) {
   abrirApuestaPartido(pid);
@@ -950,7 +914,7 @@ function renderResultados() {
   const container = document.getElementById("lista-resultados");
 
   // Sección especial para campeón, subcampeón y tercer puesto
-  const tieneEspeciales = apuestas.some(a=>['campeon','subcampeon','tercer_puesto'].includes(a.tipo));
+  const tieneEspeciales = apuestas.some(a=>['campeon','subcampeon','tercer_puesto','goleador','valla'].includes(a.tipo));
   let especialesHtml = '';
   if (tieneEspeciales) {
     const especiales = [
@@ -1373,7 +1337,6 @@ async function renderUsuarios() {
           <div style="width:38px;height:38px;border-radius:50%;background:${isAdmin?"var(--oro)":"var(--verde)"};color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ini}</div>
           <div style="flex:1;">
             <div style="font-weight:600;font-size:14px;">${u.nombre}${isAdmin?'<span class="admin-badge">Admin</span>':''}
-              ${u.eliminado?'<span style="background:#fee2e2;color:#c0392b;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;">⛔ Eliminado</span>':''}
               ${!tieneApuesta?'<span style="background:#fee2e2;color:var(--rojo);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:4px;">Sin apuestas</span>':''}
             </div>
             <div style="font-size:12px;color:var(--muted);">📱 ${u.celular||"—"} · ${u.email}</div>
@@ -1384,7 +1347,6 @@ async function renderUsuarios() {
               <button class="btn btn-sm ${isAdmin?"btn-outline":"btn-gold"}" onclick="toggleAdmin('${u.uid}','${u.nombre}','${u.rol}')" title="${isAdmin?"Quitar admin":"Hacer admin"}">
                 ${isAdmin?"👤 Quitar admin":"👑 Hacer admin"}
               </button>
-              ${u.eliminado ? `<button class="btn btn-sm" onclick="rehabilitarEliminado('${u.uid}','${u.nombre.replace(/'/g,"\'")}')" style="background:#fdf3dc;color:#c8972b;border:1px solid #f0d89a;border-radius:6px;font-size:11px;padding:3px 8px;cursor:pointer;" title="Rehabilitar para 16avos">♻️ Rehabilitar</button>` : ''}
               <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('${u.uid}','${u.nombre}')" title="Eliminar">🗑</button>
             `:'<span style="font-size:11px;color:var(--muted);">Tú</span>'}
           </div>
@@ -1394,18 +1356,6 @@ async function renderUsuarios() {
   } catch(e) { container.innerHTML='<div class="empty">Error al cargar usuarios: '+e.message+'</div>'; }
   // Load invitations
   renderLinksInvitacion();
-}
-
-async function rehabilitarEliminado(uid, nombre) {
-  if (!confirm(`¿Rehabilitar a ${nombre} para participar en 16avos?`)) return;
-  await db.collection('usuarios').doc(uid).update({
-    eliminado: false,
-    eliminadoFase: firebase.firestore.FieldValue.delete(),
-    rehabilitado: true,
-    rehabilitadoEn: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  toast(`✓ ${nombre} rehabilitado`);
-  renderUsuarios(true);
 }
 
 async function toggleAdmin(uid, nombre, rolActual) {
@@ -1462,7 +1412,7 @@ async function copiarListaSinApostar() {
 }
 
 // SYNC API-FOOTBALL
-const TEAM_MAP = {"México":"Mexico","Sudáfrica":"South Africa","Corea del Sur":"South Korea","Rep. Checa":"Czech Republic","Canadá":"Canada","Bosnia y Herz.":"Bosnia and Herzegovina","Qatar":"Qatar","Suiza":"Switzerland","Brasil":"Brazil","Marruecos":"Morocco","Haití":"Haiti","Escocia":"Scotland","Estados Unidos":"United States","Australia":"Australia","Turquía":"Turkey","Paraguay":"Paraguay","Alemania":"Germany","Curazao":"Curaçao","Costa de Marfil":"Ivory Coast","Ecuador":"Ecuador","Países Bajos":"Netherlands","Japón":"Japan","Suecia":"Sweden","Túnez":"Tunisia","Bélgica":"Belgium","Egipto":"Egypt","Irán":"Iran","Nueva Zelanda":"New Zealand","España":"Spain","Cabo Verde":"Cape Verde","Uruguay":"Uruguay","Arabia Saudita":"Saudi Arabia","Francia":"France","Senegal":"Senegal","Noruega":"Norway","Irak":"Iraq","Argentina":"Argentina","Argelia":"Algeria","Austria":"Austria","Jordania":"Jordan","Portugal":"Portugal","Rep. Dem. Congo":"Democratic Republic of the Congo","RD del Congo":"Democratic Republic of the Congo","Colombia":"Colombia","Uzbekistán":"Uzbekistan","Inglaterra":"England","Croacia":"Croatia","Ghana":"Ghana","Panamá":"Panama"};
+const TEAM_MAP = {"México":"Mexico","Sudáfrica":"South Africa","Corea del Sur":"South Korea","Rep. Checa":"Czech Republic","Canadá":"Canada","Bosnia y Herz.":"Bosnia","Qatar":"Qatar","Suiza":"Switzerland","Brasil":"Brazil","Marruecos":"Morocco","Haití":"Haiti","Escocia":"Scotland","Estados Unidos":"USA","Australia":"Australia","Turquía":"Turkey","Paraguay":"Paraguay","Alemania":"Germany","Curazao":"Curacao","Costa de Marfil":"Ivory Coast","Ecuador":"Ecuador","Países Bajos":"Netherlands","Japón":"Japan","Suecia":"Sweden","Túnez":"Tunisia","Bélgica":"Belgium","Egipto":"Egypt","Irán":"Iran","Nueva Zelanda":"New Zealand","España":"Spain","Cabo Verde":"Cape Verde","Uruguay":"Uruguay","Arabia Saudita":"Saudi Arabia","Francia":"France","Senegal":"Senegal","Noruega":"Norway","Irak":"Iraq","Argentina":"Argentina","Argelia":"Algeria","Austria":"Austria","Jordania":"Jordan","Portugal":"Portugal","Rep. Dem. Congo":"DR Congo","Colombia":"Colombia","Uzbekistán":"Uzbekistan","Inglaterra":"England","Croacia":"Croatia","Ghana":"Ghana","Panamá":"Panama"};
 
 function showSyncMsg(msg,tipo){
   const el=document.getElementById("sync-msg");el.style.display="block";
@@ -2286,7 +2236,7 @@ async function guardarResultadoEspecial(tipo) {
   const batch = db.batch();
   afectadas.forEach(a => batch.update(db.collection('apuestas').doc(a.id), {puntos: calcPuntos(a)}));
   await batch.commit();
-  toast('✓ Resultado guardado: ' + equipo);
+  toast('✓ Resultado guardado: ' + val);
   renderResultados(); renderApuestas(); renderTabla();
 }
 
@@ -2525,8 +2475,7 @@ async function guardarApuestaModal(pid) {
   if (!p) return;
 
   if (currentUser.eliminado) { toast('⛔ Fuiste eliminado en la fase de grupos'); return; }
-  const tipoApuesta = pid.startsWith('R16_') ? 'elim' : 'grupo';
-  if (!estaAbierto(pid, tipoApuesta)) { toast('⛔ Apuestas cerradas'); return; }
+  if (!estaAbierto(pid, 'grupo')) { toast('⛔ Apuestas cerradas'); return; }
 
   const cfg = configPartidos[pid] || {};
   const gl  = parseInt(document.getElementById('ma-gl')?.value) || 0;
