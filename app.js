@@ -535,7 +535,7 @@ function showTab(id, btn) {
 
 function updateTipo() {
   const t = document.getElementById("inp-tipo").value;
-  const esFinal = t==="campeon"||t==="subcampeon"||t==="tercer_puesto"||t==="goleador"||t==="valla";
+  const esFinal = t==="campeon"||t==="subcampeon"||t==="tercer_puesto"||t==="goleador"||t==="goleador_mundial"||t==="valla";
   // En FEES la pestaña nueva solo tiene tipos especiales
   const secPartido = document.getElementById("sec-partido");
   const secGoles   = document.getElementById("sec-goles");
@@ -1253,6 +1253,8 @@ function loadCierreGlobalUI() {
   if (cg && configGlobal.cierreGrupos)  cg.value  = configGlobal.cierreGrupos;
   if (ce && configGlobal.cierreElim)    ce.value  = configGlobal.cierreElim;
   if (cgg && configGlobal.cierreGoleador) cgg.value = configGlobal.cierreGoleador;
+  const cgm = document.getElementById('cierre-goleador-mundial');
+  if (cgm && configGlobal.cierreGoleadorMundial) cgm.value = configGlobal.cierreGoleadorMundial;
   if (cv  && configGlobal.cierreValla)    cv.value  = configGlobal.cierreValla;
   if (oa) oa.checked = !!configGlobal.ocultarApuestas;
   if (wa) {
@@ -2295,10 +2297,12 @@ async function borrarResultadoEspecial(tipo) {
 // CIERRE GOLEADOR Y VALLA (FEES)
 // ============================================================
 async function saveCierreGoleadorValla() {
-  const cg = document.getElementById('cierre-goleador')?.value || '';
-  const cv = document.getElementById('cierre-valla')?.value    || '';
-  configGlobal.cierreGoleador = cg;
-  configGlobal.cierreValla    = cv;
+  const cg  = document.getElementById('cierre-goleador')?.value         || '';
+  const cgm = document.getElementById('cierre-goleador-mundial')?.value || '';
+  const cv  = document.getElementById('cierre-valla')?.value            || '';
+  configGlobal.cierreGoleador       = cg;
+  configGlobal.cierreGoleadorMundial = cgm;
+  configGlobal.cierreValla          = cv;
   await db.collection('config').doc('global').set(configGlobal, {merge:true});
   toast('✓ Cierre guardado');
 }
