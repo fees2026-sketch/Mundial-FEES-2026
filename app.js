@@ -506,6 +506,7 @@ function showTab(id, btn) {
   if(id==="tabla")     renderTabla();
   if(id==="resultados")renderResultados();
   if(id==="partidos")  renderPartidos();
+  if(id==="dieciseisavos") renderPartidos16avos();
   if(id==="admin")     { adminSubTab('usuarios'); }
 }
 
@@ -776,19 +777,24 @@ function calcPuntos(a) {
 }
 
 // RENDER PARTIDOS
-function renderPartidos() {
-  const fF = document.getElementById("fil-fecha").value;
-  const fG = document.getElementById("fil-grupo-p").value;
-  const lista = PARTIDOS.filter(p=>(!fF||p.fecha===fF)&&(!fG||p.grupo===fG));
-  const fechas = [...new Set(lista.map(p=>p.fecha))];
-  document.getElementById("partidos-container").innerHTML = fechas.map(f => {
+function renderPartidos(soloFase) {
+  const fF = soloFase ? '' : document.getElementById("fil-fecha").value;
+  const fG = soloFase ? '' : document.getElementById("fil-grupo-p").value;
+  const containerId = soloFase === '16avos' ? 'partidos-16avos-container' : 'partidos-container';
+  const lista = PARTIDOS.filter(p => {
+    if (soloFase === '16avos') return p.id.startsWith('R16_');
+    return (!fF||p.fecha===fF)&&(!fG||p.grupo===fG)&&!p.id.startsWith('R16_');
+  }).sort((a,b)=>(FECHA_ORDER[a.fecha]||0)-(FECHA_ORDER[b.fecha]||0)||(PARTIDOS.indexOf(a)-PARTIDOS.indexOf(b)));
+  const fechas = [...new Set(lista.map(p=>p.fecha))].sort((a,b)=>(FECHA_ORDER[a]||0)-(FECHA_ORDER[b]||0));
+  document.getElementById(containerId).innerHTML = fechas.map(f => {
     const ps = lista.filter(p=>p.fecha===f);
     return `<div class="fecha-bloque">
       <div class="fecha-header"><div class="fecha-badge">📅 ${f}</div><div class="fecha-line"></div><div style="font-size:12px;color:var(--muted);white-space:nowrap;">${ps.length} partido${ps.length!==1?"s":""}</div></div>
       <div class="partidos-grid">${ps.map(p => {
         const res = resultados[p.id];
-        const abierto = estaAbierto(p.id, 'grupo');
-        const tr = tiempoRestante(p.id, 'grupo');
+        const tipoPartido = p.id.startsWith('R16_') ? 'elim' : 'grupo';
+        const abierto = estaAbierto(p.id, tipoPartido);
+        const tr = tiempoRestante(p.id, tipoPartido);
         const miApuesta = apuestas.find(a => a.uid === currentUser.uid && a.partidoId === p.id);
         let cierreBadge = '';
         if (tr === 'cerrado') cierreBadge = '<span class="cierre-badge cierre-cerrado">⛔ Cerrado</span>';
@@ -826,6 +832,8 @@ function renderPartidos() {
       }).join("")}</div></div>`;
   }).join("");
 }
+
+function renderPartidos16avos() { renderPartidos('16avos'); }
 
 function preselectPartido(pid) {
   abrirApuestaPartido(pid);
