@@ -1363,10 +1363,14 @@ function abrirModalEditarApuestas(uid, nombre) {
     + '</div>'
     + '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Deja en blanco los partidos que no quieras modificar.</div>'
     + rows
-    + '<button onclick="guardarApuestasAdmin(\"' + uid + '\",\"' + nombre.replace(/"/g,"&quot;") + '\")" style="width:100%;margin-top:16px;padding:12px;background:var(--verde);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">✓ Guardar cambios</button>'
+    + '<button id="btn-guardar-apuestas-admin" style="width:100%;margin-top:16px;padding:12px;background:var(--verde);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">✓ Guardar cambios</button>'
     + '</div>';
 
   modal.style.display = 'flex';
+  var btnGuardar = document.getElementById('btn-guardar-apuestas-admin');
+  if (btnGuardar) {
+    btnGuardar.onclick = function() { guardarApuestasAdmin(uid, nombre); };
+  }
 }
 
 async function guardarApuestasAdmin(uid, nombre) {
