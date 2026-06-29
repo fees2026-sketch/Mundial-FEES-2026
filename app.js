@@ -1325,6 +1325,11 @@ function renderApuestasPorUsuario() {
 // ============================================================
 // MODAL EDITAR APUESTAS (ADMIN)
 // ============================================================
+function cerrarModalEditarApuestas() {
+  var m = document.getElementById('modal-editar-apuestas');
+  if (m) m.style.display = 'none';
+}
+
 function abrirModalEditarApuestas(uid, nombre) {
   var modal = document.getElementById('modal-editar-apuestas');
   if (!modal) {
@@ -1353,8 +1358,8 @@ function abrirModalEditarApuestas(uid, nombre) {
 
   modal.innerHTML = '<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:500px;margin:20px auto;max-height:90vh;overflow-y:auto;">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'
-    + '<div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--verde);">Editar apuestas: ' + nombre + '</div>'
-    + '<button onclick="document.getElementById('modal-editar-apuestas').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>'
+    + '<div style="font-family:sans-serif;font-size:20px;color:var(--verde);">Editar apuestas: ' + nombre + '</div>'
+    + '<button onclick="cerrarModalEditarApuestas()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>'
     + '</div>'
     + '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Deja en blanco los partidos que no quieras modificar.</div>'
     + rows
