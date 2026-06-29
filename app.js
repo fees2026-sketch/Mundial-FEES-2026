@@ -1252,67 +1252,72 @@ async function toggleAperturaUsuario(uid, nombre) {
 }
 
 function renderApuestasPorUsuario() {
-  const container = document.getElementById('lista-apuestas-por-usuario');
+  var container = document.getElementById('lista-apuestas-por-usuario');
   if (!container) return;
-  const filtroNombre = (document.getElementById('filtro-usr-nombre')?.value || '').toLowerCase();
-  const filtroTipo = document.getElementById('filtro-usr-tipo')?.value || '';
-  const toggleGlobal = document.getElementById('toggle-apertura-global');
-  const globalAbierto = configGlobal.apuestasAbiertas;
+  var fn = document.getElementById('filtro-usr-nombre');
+  var ft = document.getElementById('filtro-usr-tipo');
+  var filtroNombre = (fn ? fn.value : '').toLowerCase();
+  var filtroTipo = ft ? ft.value : '';
+  var toggleGlobal = document.getElementById('toggle-apertura-global');
+  var globalAbierto = configGlobal.apuestasAbiertas;
   if (toggleGlobal) {
     toggleGlobal.textContent = globalAbierto ? "Apuestas abiertas (cerrar todo)" : "Apuestas cerradas (abrir todo)";
     toggleGlobal.style.background = globalAbierto ? "#e8f7ed" : "#fef0f0";
     toggleGlobal.style.color = globalAbierto ? "#1a6b3c" : "#dc2626";
     toggleGlobal.style.borderColor = globalAbierto ? "#a3d9b8" : "#fecaca";
   }
-  const porUsuario = new Map();
-  apuestas.forEach(a => {
+  var porUsuario = new Map();
+  apuestas.forEach(function(a) {
     if (!a.uid || !a.nombre) return;
     if (filtroTipo && a.tipo !== filtroTipo) return;
-    if (!porUsuario.has(a.uid)) porUsuario.set(a.uid, { uid: a.uid, nombre: a.nombre, bets: [] });
+    if (!porUsuario.has(a.uid)) porUsuario.set(a.uid, {uid: a.uid, nombre: a.nombre, bets: []});
     porUsuario.get(a.uid).bets.push(a);
   });
-  const usuarios = [...porUsuario.values()]
-    .filter(u => !filtroNombre || u.nombre.toLowerCase().includes(filtroNombre))
-    .sort((a,b) => a.nombre.localeCompare(b.nombre));
-  if (!usuarios.length) { container.innerHTML = '<div class="empty" style="padding:24px;">Sin resultados</div>'; return; }
-  container.innerHTML = usuarios.map(u => {
-    const pts = u.bets.reduce((s,a) => s + calcPuntos(a), 0);
-    const ini = u.nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
-    const baldosas = u.bets.map(a => {
-      const p = calcPuntos(a);
-      const res = resultados[a.partidoId] || {};
-      const tieneRes = a.partidoId && res.local !== undefined;
-      let titulo = "", detalle = "";
-      if (a.tipo === "grupo") {
-        const partido = PARTIDOS.find(x => x.id === a.partidoId);
-        titulo = partido ? partido.local + " vs " + partido.visitante : (a.local + " vs " + a.visitante);
-        detalle = (a.golLocal ?? "?") + " - " + (a.golVisitante ?? "?");
-        if (tieneRes) detalle += " (" + res.local + "-" + res.visitante + ")";
-      } else if (a.tipo==="campeon") { titulo="Campeon"; detalle=a.campeon||a.equipoElegido||"-"; }
-      else if (a.tipo==="subcampeon") { titulo="Subcampeon"; detalle=a.subcampeon||a.equipoElegido||"-"; }
-      else if (a.tipo==="tercer_puesto") { titulo="3er Puesto"; detalle=a.tercerPuesto||a.equipoElegido||"-"; }
-      else if (a.tipo==="goleador") { titulo="Goleador"; detalle=a.goleador||a.equipoElegido||"-"; }
-      else if (a.tipo==="goleador_mundial") { titulo="Gol.Mundial"; detalle=a.goleador_mundial||a.equipoElegido||"-"; }
-      else if (a.tipo==="valla") { titulo="Valla"; detalle=a.valla||a.equipoElegido||"-"; }
-      const bg = tieneRes ? (p>0?"#e8f7ed":"#fef0f0") : "var(--bg)";
-      const border = tieneRes ? (p>0?"#a3d9b8":"#fecaca") : "var(--border)";
-      return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:8px 10px;min-width:110px;max-width:140px;flex:0 0 auto;">`
-        + `<div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${titulo}</div>`
-        + `<div style="font-size:13px;font-weight:700;color:var(--verde);">${detalle}</div>`
-        + (p>0?`<div style="font-size:10px;color:#1a6b3c;font-weight:700;margin-top:4px;">+${p} pts</div>`:"")
-        + "</div>";
-    }).join("");
-    return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">`
-      + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">`
-      + `<div style="width:36px;height:36px;border-radius:50%;background:var(--verde);color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;">${ini}</div>`
-      + `<div style="flex:1;font-weight:600;font-size:14px;">${u.nombre}</div>`
-      + `<div style="font-size:13px;font-weight:700;color:var(--verde);margin-right:6px;">${pts} pts</div>`
-      + `<button onclick="toggleAperturaUsuario('${u.uid}','${u.nombre.replace(/'/g,"\'")}')"`
-      + ` style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--bg);color:var(--muted);">Abrir/Cerrar</button>`
-      + "</div>"
-      + `<div style="display:flex;flex-wrap:wrap;gap:6px;">${baldosas}</div>`
-      + "</div>";
-  }).join("");
+  var usuarios = Array.from(porUsuario.values())
+    .filter(function(u) { return !filtroNombre || u.nombre.toLowerCase().includes(filtroNombre); })
+    .sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+  if (!usuarios.length) {
+    container.innerHTML = '<div class="empty" style="padding:24px;">Sin resultados</div>';
+    return;
+  }
+  container.innerHTML = usuarios.map(function(u) {
+    var pts = u.bets.reduce(function(s, a) { return s + calcPuntos(a); }, 0);
+    var ini = u.nombre.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+    var baldosas = u.bets.map(function(a) {
+      var p = calcPuntos(a);
+      var res = resultados[a.partidoId] || {};
+      var tieneRes = a.partidoId && res.local !== undefined;
+      var titulo = '', detalle = '';
+      if (a.tipo === 'grupo') {
+        var partido = PARTIDOS.find(function(x) { return x.id === a.partidoId; });
+        titulo = partido ? partido.local + ' vs ' + partido.visitante : (a.local + ' vs ' + a.visitante);
+        detalle = (a.golLocal != null ? a.golLocal : '?') + '-' + (a.golVisitante != null ? a.golVisitante : '?');
+        if (tieneRes) detalle += ' (' + res.local + '-' + res.visitante + ')';
+      } else if (a.tipo === 'campeon') { titulo = 'Campeon'; detalle = a.campeon || a.equipoElegido || '-'; }
+      else if (a.tipo === 'subcampeon') { titulo = 'Subcampeon'; detalle = a.subcampeon || a.equipoElegido || '-'; }
+      else if (a.tipo === 'tercer_puesto') { titulo = '3er Puesto'; detalle = a.tercerPuesto || a.equipoElegido || '-'; }
+      else if (a.tipo === 'goleador') { titulo = 'Goleador'; detalle = a.goleador || a.equipoElegido || '-'; }
+      else if (a.tipo === 'goleador_mundial') { titulo = 'Gol.Mundial'; detalle = a.goleador_mundial || a.equipoElegido || '-'; }
+      else if (a.tipo === 'valla') { titulo = 'Valla'; detalle = a.valla || a.equipoElegido || '-'; }
+      var bg = tieneRes ? (p > 0 ? '#e8f7ed' : '#fef0f0') : 'var(--bg)';
+      var border = tieneRes ? (p > 0 ? '#a3d9b8' : '#fecaca') : 'var(--border)';
+      return '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:10px;padding:8px 10px;min-width:100px;max-width:130px;flex:0 0 auto;">'
+        + '<div style="font-size:10px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + titulo + '</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--verde);">' + detalle + '</div>'
+        + (p > 0 ? '<div style="font-size:10px;color:#1a6b3c;font-weight:700;">+' + p + ' pts</div>' : '')
+        + '</div>';
+    }).join('');
+    var btnOnclick = "toggleAperturaUsuario('" + u.uid + "','" + u.nombre.replace(/'/g, "\'") + "')";
+    return '<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+      + '<div style="width:36px;height:36px;border-radius:50%;background:var(--verde);color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;">' + ini + '</div>'
+      + '<div style="flex:1;font-weight:600;font-size:14px;">' + u.nombre + '</div>'
+      + '<div style="font-size:13px;font-weight:700;color:var(--verde);margin-right:6px;">' + pts + ' pts</div>'
+      + '<button onclick="' + btnOnclick + '" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--bg);color:var(--muted);">Abrir/Cerrar</button>'
+      + '</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + baldosas + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 function initConfigFiltros() {
