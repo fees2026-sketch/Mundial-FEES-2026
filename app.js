@@ -1314,10 +1314,98 @@ function renderApuestasPorUsuario() {
       + '<div style="flex:1;font-weight:600;font-size:14px;">' + u.nombre + '</div>'
       + '<div style="font-size:13px;font-weight:700;color:var(--verde);margin-right:6px;">' + pts + ' pts</div>'
       + '<button onclick="' + btnOnclick + '" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--bg);color:var(--muted);">Abrir/Cerrar</button>'
+      + '<button onclick="abrirModalEditarApuestas(\'' + u.uid + '\',\'' + u.nombre.replace(/'/g, "\\'") + '\')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;color:#1e40af;cursor:pointer;margin-left:4px;">✏️ Editar</button>'
       + '</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + baldosas + '</div>'
       + '</div>';
   }).join('');
+}
+
+
+// ============================================================
+// MODAL EDITAR APUESTAS (ADMIN)
+// ============================================================
+function abrirModalEditarApuestas(uid, nombre) {
+  var modal = document.getElementById('modal-editar-apuestas');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-editar-apuestas';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3000;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
+    document.body.appendChild(modal);
+  }
+
+  var userBets = apuestas.filter(function(a) { return a.uid === uid; });
+  
+  var rows = PARTIDOS.map(function(p) {
+    var apuesta = userBets.find(function(a) { return a.partidoId === p.id; });
+    var gl = apuesta ? apuesta.golLocal : '';
+    var gv = apuesta ? apuesta.golVisitante : '';
+    var res = resultados[p.id];
+    var resBadge = res ? '<span style="font-size:10px;background:#d4edd9;color:#1a6b3c;padding:1px 6px;border-radius:6px;margin-left:6px;">' + res.local + '-' + res.visitante + '</span>' : '';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
+      + '<div style="flex:1;min-width:140px;font-size:12px;font-weight:600;">' + p.local + ' vs ' + p.visitante + resBadge + '</div>'
+      + '<div style="font-size:10px;color:var(--muted);margin-right:4px;">' + p.fecha + '</div>'
+      + '<input type="number" id="ea-gl-' + p.id + '" min="0" max="20" value="' + gl + '" placeholder="-" style="width:44px;text-align:center;padding:4px;font-size:14px;font-weight:700;border:1px solid var(--border);border-radius:6px;"/>'
+      + '<span style="color:var(--muted);font-size:12px;">-</span>'
+      + '<input type="number" id="ea-gv-' + p.id + '" min="0" max="20" value="' + gv + '" placeholder="-" style="width:44px;text-align:center;padding:4px;font-size:14px;font-weight:700;border:1px solid var(--border);border-radius:6px;"/>'
+      + '</div>';
+  }).join('');
+
+  modal.innerHTML = '<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:500px;margin:20px auto;max-height:90vh;overflow-y:auto;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'
+    + '<div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--verde);">Editar apuestas: ' + nombre + '</div>'
+    + '<button onclick="document.getElementById('modal-editar-apuestas').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>'
+    + '</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Deja en blanco los partidos que no quieras modificar.</div>'
+    + rows
+    + '<button onclick="guardarApuestasAdmin('' + uid + '','' + nombre.replace(/'/g,"\'") + '')" style="width:100%;margin-top:16px;padding:12px;background:var(--verde);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">✓ Guardar cambios</button>'
+    + '</div>';
+
+  modal.style.display = 'flex';
+}
+
+async function guardarApuestasAdmin(uid, nombre) {
+  var btn = document.querySelector('#modal-editar-apuestas button:last-child');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando...'; }
+  
+  var userBets = apuestas.filter(function(a) { return a.uid === uid; });
+  var batch = db.batch();
+  var count = 0;
+
+  for (var i = 0; i < PARTIDOS.length; i++) {
+    var p = PARTIDOS[i];
+    var glEl = document.getElementById('ea-gl-' + p.id);
+    var gvEl = document.getElementById('ea-gv-' + p.id);
+    if (!glEl || glEl.value === '' || gvEl.value === '') continue;
+    
+    var gl = parseInt(glEl.value);
+    var gv = parseInt(gvEl.value);
+    var existing = userBets.find(function(a) { return a.partidoId === p.id; });
+    
+    if (existing) {
+      batch.update(db.collection('apuestas').doc(existing.id), {
+        golLocal: gl, golVisitante: gv,
+        ts: new Date().toLocaleString('es-CO')
+      });
+    } else {
+      var ref = db.collection('apuestas').doc();
+      batch.set(ref, {
+        numId: Date.now() + i,
+        uid: uid, nombre: nombre,
+        tipo: 'grupo',
+        local: p.local, visitante: p.visitante,
+        partidoId: p.id, grupo: p.grupo,
+        golLocal: gl, golVisitante: gv,
+        ts: new Date().toLocaleString('es-CO'),
+        creado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    count++;
+  }
+
+  await batch.commit();
+  toast('✓ ' + count + ' apuesta(s) guardada(s) para ' + nombre);
+  document.getElementById('modal-editar-apuestas').style.display = 'none';
 }
 
 function initConfigFiltros() {
