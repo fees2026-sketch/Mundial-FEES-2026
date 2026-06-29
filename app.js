@@ -1237,7 +1237,7 @@ function adminSubTab(tab) {
 
 async function toggleAperturaGlobal() {
   const abierto = configGlobal.apuestasAbiertas;
-  await db.collection('config').doc('global').update({ apuestasAbiertas: !abierto });
+  await db.collection('config').doc('global').set({ apuestasAbiertas: !abierto }, { merge: true });
   configGlobal.apuestasAbiertas = !abierto;
   toast(abierto ? "Apuestas cerradas globalmente" : "Apuestas abiertas globalmente");
   renderApuestasPorUsuario();
