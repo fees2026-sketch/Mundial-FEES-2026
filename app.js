@@ -2726,6 +2726,12 @@ async function recalcularTodosPuntos() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Mover admin-panel-apuestas-usr al nivel correcto si está mal ubicado
+  const panelApu = document.getElementById('admin-panel-apuestas-usr');
+  if (panelApu && panelApu.parentElement.id === 'admin-panel-puntos') {
+    const tabAdmin = document.getElementById('tab-admin');
+    if (tabAdmin) tabAdmin.appendChild(panelApu);
+  }
   init();
   setTimeout(() => updateTipo(), 100); // Initialize form state after DOM ready
   cargarResultados();
