@@ -1307,8 +1307,7 @@ function renderApuestasPorUsuario() {
       + `<div style="width:36px;height:36px;border-radius:50%;background:var(--verde);color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;">${ini}</div>`
       + `<div style="flex:1;font-weight:600;font-size:14px;">${u.nombre}</div>`
       + `<div style="font-size:13px;font-weight:700;color:var(--verde);margin-right:6px;">${pts} pts</div>`
-      + `<button onclick="toggleAperturaUsuario('${u.uid}','${u.nombre.replace(/'/g,"\'")}')"
-`
+      + `<button onclick="toggleAperturaUsuario('${u.uid}','${u.nombre.replace(/'/g,"\'")}')"`
       + ` style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:var(--bg);color:var(--muted);">Abrir/Cerrar</button>`
       + "</div>"
       + `<div style="display:flex;flex-wrap:wrap;gap:6px;">${baldosas}</div>`
