@@ -83,7 +83,7 @@ const PARTIDOS = [
   {id:"R16_2", grupo:"16avos de Final",local:"Brasil",visitante:"Japón",fecha:"29 Jun",sede:"Houston"},
   {id:"R16_3", grupo:"16avos de Final",local:"Alemania",visitante:"Paraguay",fecha:"29 Jun",sede:"Boston"},
   {id:"R16_4", grupo:"16avos de Final",local:"Países Bajos",visitante:"Marruecos",fecha:"29 Jun",sede:"Monterrey"},
-  {id:"R16_5", grupo:"16avos de Final",local:"Francia",visitante:"Noruega",fecha:"30 Jun",sede:"Nueva York"},
+  {id:"R16_5", grupo:"16avos de Final",local:"Francia",visitante:"Suecia",fecha:"30 Jun",sede:"Nueva York"},
   {id:"R16_6", grupo:"16avos de Final",local:"Costa de Marfil",visitante:"Noruega",fecha:"30 Jun",sede:"Dallas"},
   {id:"R16_7", grupo:"16avos de Final",local:"México",visitante:"Ecuador",fecha:"30 Jun",sede:"Ciudad de México"},
   {id:"R16_8", grupo:"16avos de Final",local:"Inglaterra",visitante:"RD del Congo",fecha:"1 Jul",sede:"Atlanta"},
