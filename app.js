@@ -1663,29 +1663,40 @@ function showSyncMsg(msg,tipo){
 async function syncResultados() {
   const btn=document.getElementById("btn-sync");
   btn.disabled=true;btn.textContent="⏳ Sincronizando...";
-  showSyncMsg("Consultando API-Football...","info");
+  showSyncMsg("Consultando worldcup26.ir...","info");
   try {
-    const res = await fetch(`https://v3.football.api-sports.io/fixtures?league=1&season=2026&status=FT`,{
-      headers:{"x-apisports-key":API_KEY_FOOTBALL}
-    });
+    const res = await fetch('https://worldcup26.ir/get/games');
     const data = await res.json();
-    if(!data.response||!data.response.length){showSyncMsg("⚠ No hay partidos finalizados aún","info");btn.disabled=false;btn.textContent="🔄 Sincronizar API";return;}
+    const games = data.games || [];
+    const terminados = games.filter(g => g.finished === 'TRUE' && g.home_score !== null && g.away_score !== null);
+    if(!terminados.length){showSyncMsg("⚠ No hay partidos finalizados aún","info");btn.disabled=false;btn.textContent="🔄 Sincronizar API";return;}
     let actualizados=0;
     const batch = db.batch();
-    data.response.forEach(f=>{
-      const partido=PARTIDOS.find(p=>{const lm=TEAM_MAP[p.local]||p.local,vm=TEAM_MAP[p.visitante]||p.visitante;return(lm===f.teams.home.name&&vm===f.teams.away.name)||(lm===f.teams.away.name&&vm===f.teams.home.name);});
-      if(partido&&f.goals.home!==null){
-        const lm=TEAM_MAP[partido.local]||partido.local;
-        const r=lm===f.teams.home.name?{local:f.goals.home,visitante:f.goals.away}:{local:f.goals.away,visitante:f.goals.home};
-        resultados[partido.id]=r;
-        batch.set(db.collection("resultados").doc(partido.id),{...r,ts:firebase.firestore.FieldValue.serverTimestamp()});
-        actualizados++;
-      }
+    terminados.forEach(g => {
+      const partido = PARTIDOS.find(p => {
+        const lm = TEAM_MAP[p.local]    || p.local;
+        const vm = TEAM_MAP[p.visitante] || p.visitante;
+        return (lm === g.home_team_name_en && vm === g.away_team_name_en) ||
+               (lm === g.away_team_name_en && vm === g.home_team_name_en);
+      });
+      if (!partido) return;
+      const lm = TEAM_MAP[partido.local] || partido.local;
+      const esLocal = lm === g.home_team_name_en;
+      const r = {
+        local:     esLocal ? parseInt(g.home_score) : parseInt(g.away_score),
+        visitante: esLocal ? parseInt(g.away_score) : parseInt(g.home_score),
+        ts: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      resultados[partido.id] = { ...(resultados[partido.id]||{}), ...r };
+      batch.set(db.collection("resultados").doc(partido.id), r, { merge: true });
+      actualizados++;
     });
     await batch.commit();
-    // Recalcular puntos
-    const batchPts=db.batch();
-    apuestas.forEach(a=>{if(a.partidoId&&resultados[a.partidoId])batchPts.update(db.collection("apuestas").doc(a.id),{puntos:calcPuntos(a)});});
+    const batchPts = db.batch();
+    apuestas.forEach(a => {
+      if (a.partidoId && resultados[a.partidoId])
+        batchPts.update(db.collection("apuestas").doc(a.id), {puntos: calcPuntos(a)});
+    });
     await batchPts.commit();
     showSyncMsg(`✓ ${actualizados} partido(s) actualizado(s)`,"ok");
     toast(`✓ ${actualizados} resultado(s) sincronizados`);
