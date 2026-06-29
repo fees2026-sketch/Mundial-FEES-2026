@@ -1232,7 +1232,7 @@ function adminSubTab(tab) {
   if(tab==="config")  { renderConfigPartidos(); initConfigFiltros(); loadCierreGlobalUI(); }
   if(tab==="textos")  renderTextos();
   if(tab==="usuarios")renderUsuarios();
-  if(tab==="apuestas-usr") renderApuestasPorUsuario();
+  if(tab==="apuestas-usr") { const fn = document.getElementById('filtro-usr-nombre'); if(fn) fn.value=''; renderApuestasPorUsuario(); }
 }
 
 async function toggleAperturaGlobal() {
