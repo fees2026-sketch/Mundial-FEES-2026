@@ -1098,12 +1098,29 @@ async function renderTabla() {
   const container = document.getElementById("tabla-ranking");
   container.innerHTML = '<div class="empty" style="padding:24px">Cargando...</div>';
 
-  // Cargar usuarios desde caché (reduce lecturas Firestore)
+  const esAdmin = currentUser.rol === 'admin';
+
+  // Filtro por partido (solo admin)
+  const filtroDiv = document.getElementById('filtro-tabla-partido');
+  const selPartido = document.getElementById('sel-filtro-tabla-partido');
+  if (filtroDiv) filtroDiv.style.display = esAdmin ? 'block' : 'none';
+  if (esAdmin && selPartido) {
+    const partidosConRes = Object.keys(resultados).filter(pid => PARTIDOS.find(p=>p.id===pid));
+    const valActual = selPartido.value;
+    selPartido.innerHTML = '<option value="">Ranking general</option>' +
+      partidosConRes.map(pid => {
+        const p = PARTIDOS.find(x=>x.id===pid);
+        const label = p ? p.local + ' vs ' + p.visitante : pid;
+        return '<option value="' + pid + '"' + (pid===valActual?' selected':'') + '>' + label + '</option>';
+      }).join('');
+    if (valActual && partidosConRes.includes(valActual)) selPartido.value = valActual;
+  }
+  const filtroPartido = esAdmin && selPartido ? selPartido.value : '';
+
   let todosUsuarios = [];
   try {
     todosUsuarios = await getUsuarios();
-    // Stats admin
-    if (currentUser.rol === 'admin') {
+    if (esAdmin) {
       const total     = todosUsuarios.length;
       const invitados = todosUsuarios.filter(u => u.invitadoPor).length;
       const asociados = total - invitados;
@@ -1117,17 +1134,79 @@ async function renderTabla() {
     }
   } catch(e) { console.error('Error cargando usuarios:', e); }
 
-  // Construir ranking con todos los usuarios
+  // Partido más cercano con desempate habilitado
+  const partidosConDesempate = Object.entries(configPartidos)
+    .filter(([,c]) => c.tarjetas || c.esquinas)
+    .map(([id]) => id);
+  const hayDesempate = partidosConDesempate.length > 0;
+  const partidoDesempate = hayDesempate
+    ? partidosConDesempate.sort((a,b) => {
+        const ia = PARTIDOS.findIndex(p=>p.id===a);
+        const ib = PARTIDOS.findIndex(p=>p.id===b);
+        return ia - ib;
+      })[0]
+    : null;
+
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
     .map(u => {
-      const bets  = apuestas.filter(a => a.uid === u.uid);
-      const fases = calcPuntosPorFase(bets);
+      const bets = filtroPartido
+        ? apuestas.filter(a => a.uid === u.uid && a.partidoId === filtroPartido)
+        : apuestas.filter(a => a.uid === u.uid);
+      const fases = filtroPartido ? {} : calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
-      return { nombre, pts: total, count: bets.length, fases, ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase() };
+
+      let desFiltro = { tarjetas: 0, esquinas: 0, distTarjetas: 999, distEsquinas: 999 };
+      if (filtroPartido) {
+        const apFiltro = bets[0];
+        const resFiltro = resultados[filtroPartido] || {};
+        const cfgFiltro = configPartidos[filtroPartido] || {};
+        if (apFiltro && cfgFiltro.tarjetas && resFiltro.tarjetasLocal !== undefined) {
+          const exacto = Number(apFiltro.tarjetasLocal) === Number(resFiltro.tarjetasLocal) &&
+                         Number(apFiltro.tarjetasVisitante) === Number(resFiltro.tarjetasVisitante);
+          desFiltro.tarjetas = exacto ? 1 : 0;
+          desFiltro.distTarjetas = Math.abs(Number(apFiltro.tarjetasLocal) - Number(resFiltro.tarjetasLocal)) +
+                                   Math.abs(Number(apFiltro.tarjetasVisitante) - Number(resFiltro.tarjetasVisitante));
+        }
+        if (apFiltro && cfgFiltro.esquinas && resFiltro.esquinasLocal !== undefined) {
+          const exacto = Number(apFiltro.esquinasLocal) === Number(resFiltro.esquinasLocal) &&
+                         Number(apFiltro.esquinasVisitante) === Number(resFiltro.esquinasVisitante);
+          desFiltro.esquinas = exacto ? 1 : 0;
+          desFiltro.distEsquinas = Math.abs(Number(apFiltro.esquinasLocal) - Number(resFiltro.esquinasLocal)) +
+                                   Math.abs(Number(apFiltro.esquinasVisitante) - Number(resFiltro.esquinasVisitante));
+        }
+      }
+
+      const desempate = {};
+      if (currentUser.rol === 'admin' && partidoDesempate) {
+        const pid = partidoDesempate;
+        const apuesta = bets.find(a => a.partidoId === pid);
+        const p = PARTIDOS.find(x => x.id === pid);
+        const label = p ? p.local + ' vs ' + p.visitante : pid;
+        const cfg = configPartidos[pid] || {};
+        desempate[pid] = { label, tarjetas: cfg.tarjetas, esquinas: cfg.esquinas,
+          tl: apuesta?.tarjetasLocal, tv: apuesta?.tarjetasVisitante,
+          el: apuesta?.esquinasLocal, ev: apuesta?.esquinasVisitante };
+      }
+
+      return { nombre, pts: total, count: bets.length, fases, desempate,
+               ini: nombre.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(),
+               desFiltroTarjetas: desFiltro.tarjetas, desFiltroEsquinas: desFiltro.esquinas,
+               distTarjetas: desFiltro.distTarjetas, distEsquinas: desFiltro.distEsquinas };
     })
-    .sort((a,b) => b.pts-a.pts || b.count-a.count);
+    .sort((a,b) => {
+      if (b.pts !== a.pts) return b.pts - a.pts;
+      if (filtroPartido) {
+        const aAmbo = a.desFiltroTarjetas + a.desFiltroEsquinas;
+        const bAmbo = b.desFiltroTarjetas + b.desFiltroEsquinas;
+        if (bAmbo !== aAmbo) return bAmbo - aAmbo;
+        const aDist = (a.distTarjetas === 999 ? 0 : a.distTarjetas) + (a.distEsquinas === 999 ? 0 : a.distEsquinas);
+        const bDist = (b.distTarjetas === 999 ? 0 : b.distTarjetas) + (b.distEsquinas === 999 ? 0 : b.distEsquinas);
+        if (aDist !== bDist) return aDist - bDist;
+      }
+      return b.count - a.count;
+    });
 
   if (!ranking.length) { container.innerHTML='<div class="empty" style="padding:24px">Sin participantes aún</div>'; return; }
   const colors = ["var(--oro)","#adb5bd","#cd7f32"];
@@ -1137,18 +1216,46 @@ async function renderTabla() {
       .map(([k,v])=>{
         const labels = {grupos:'Grupos',octavos:'Octavos',cuartos:'Cuartos',semis:'Semis',final:'Final',campeon:'Campeón'};
         const icons  = {grupos:'⚽',octavos:'🔁',cuartos:'🏅',semis:'🌟',final:'🏆',campeon:'👑'};
-        return `<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">${icons[k]||''} ${labels[k]||k}: <strong>${v}</strong></span>`;
+        return '<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">' + (icons[k]||'') + ' ' + (labels[k]||k) + ': <strong>' + v + '</strong></span>';
       }).join('');
-    return `<div class="rank-row" style="flex-wrap:wrap;">
-      <div class="rank-pos${i<3?" top":""}">${i+1}</div>
-      <div style="width:38px;height:38px;border-radius:50%;background:${colors[i]||"var(--verde)"};color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${r.ini}</div>
-      <div class="rank-name" style="flex:1;">
-        ${i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":""}${r.nombre}
-        <div class="rank-sub">${r.count} apuesta${r.count!==1?"s":""}</div>
-        ${faseBadges ? `<div style="margin-top:5px;flex-wrap:wrap;display:flex;gap:3px;">${faseBadges}</div>` : ''}
-      </div>
-      <div><div class="rank-pts">${r.pts}</div><div class="pts-lbl">puntos</div></div>
-    </div>`;
+
+    let desempateBadges = '';
+    if (currentUser.rol === 'admin') {
+      const pidsBadge = filtroPartido ? [filtroPartido] : Object.keys(r.desempate);
+      pidsBadge.forEach(pid => {
+        const cfg = configPartidos[pid] || {};
+        const res = resultados[pid] || {};
+        const apFiltro = apuestas.find(a => a.uid === (apuestas.find(x=>x.nombre===r.nombre)?.uid) && a.partidoId === pid);
+        const d = r.desempate[pid] || {
+          tarjetas: cfg.tarjetas, esquinas: cfg.esquinas,
+          tl: apFiltro?.tarjetasLocal, tv: apFiltro?.tarjetasVisitante,
+          el: apFiltro?.esquinasLocal, ev: apFiltro?.esquinasVisitante,
+          label: (() => { const p=PARTIDOS.find(x=>x.id===pid); return p?(p.local+' vs '+p.visitante):pid; })()
+        };
+        if (d.tarjetas) {
+          const tl = d.tl ?? '?', tv = d.tv ?? '?';
+          const acerto = res.tarjetasLocal !== undefined && Number(d.tl) === Number(res.tarjetasLocal) && Number(d.tv) === Number(res.tarjetasVisitante);
+          desempateBadges += '<span title="Tarjetas en ' + d.label + '" style="font-size:10px;background:' + (acerto?'#d4edd9':'#fdf3dc') + ';color:' + (acerto?'#1a6b3c':'#c8972b') + ';padding:2px 7px;border-radius:8px;margin-right:3px;">🟨 ' + tl + '–' + tv + '</span>';
+        }
+        if (d.esquinas) {
+          const el = d.el ?? '?', ev = d.ev ?? '?';
+          const acerto = res.esquinasLocal !== undefined && Number(d.el) === Number(res.esquinasLocal) && Number(d.ev) === Number(res.esquinasVisitante);
+          desempateBadges += '<span title="Esquinas en ' + d.label + '" style="font-size:10px;background:' + (acerto?'#d4edd9':'#e8eef7') + ';color:' + (acerto?'#1a6b3c':'var(--verde)') + ';padding:2px 7px;border-radius:8px;margin-right:3px;">🔄 ' + el + '–' + ev + '</span>';
+        }
+      });
+    }
+
+    return '<div class="rank-row" style="flex-wrap:wrap;">'
+      + '<div class="rank-pos' + (i<3?" top":"") + '">' + (i+1) + '</div>'
+      + '<div style="width:38px;height:38px;border-radius:50%;background:' + (colors[i]||"var(--verde)") + ';color:white;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + r.ini + '</div>'
+      + '<div class="rank-name" style="flex:1;">'
+      + (i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":"") + r.nombre
+      + '<div class="rank-sub">' + r.count + ' apuesta' + (r.count!==1?"s":"") + '</div>'
+      + (faseBadges ? '<div style="margin-top:5px;flex-wrap:wrap;display:flex;gap:3px;">' + faseBadges + '</div>' : '')
+      + (desempateBadges ? '<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;">' + desempateBadges + '</div>' : '')
+      + '</div>'
+      + '<div><div class="rank-pts">' + r.pts + '</div><div class="pts-lbl">puntos</div></div>'
+      + '</div>';
   }).join("");
 }
 
@@ -1424,6 +1531,68 @@ async function guardarApuestasAdmin(uid, nombre) {
   await batch.commit();
   toast('✓ ' + count + ' apuesta(s) guardada(s) para ' + nombre);
   document.getElementById('modal-editar-apuestas').style.display = 'none';
+}
+
+
+function exportarApuestasFiltradasXLSX() {
+  var fn = document.getElementById('filtro-usr-nombre');
+  var ft = document.getElementById('filtro-usr-tipo');
+  var fv = document.getElementById('filtro-usr-valor');
+  var filtroNombre = (fn ? fn.value : '').toLowerCase();
+  var filtroTipo = ft ? ft.value : '';
+  var filtroValor = (fv ? fv.value : '').toLowerCase();
+
+  var porUsuario = new Map();
+  apuestas.forEach(function(a) {
+    if (!a.uid || !a.nombre) return;
+    if (filtroTipo && a.tipo !== filtroTipo) return;
+    if (!porUsuario.has(a.uid)) porUsuario.set(a.uid, {uid: a.uid, nombre: a.nombre, bets: []});
+    porUsuario.get(a.uid).bets.push(a);
+  });
+
+  var usuarios = Array.from(porUsuario.values())
+    .filter(function(u) { return !filtroNombre || u.nombre.toLowerCase().includes(filtroNombre); })
+    .filter(function(u) {
+      if (!filtroValor) return true;
+      return u.bets.some(function(a) {
+        var val = (a.goleador || a.goleador_mundial || a.valla || a.campeon || a.subcampeon || a.tercerPuesto || a.equipoElegido || '').toLowerCase();
+        return val.includes(filtroValor);
+      });
+    })
+    .sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+
+  if (!usuarios.length) { toast('No hay resultados para exportar'); return; }
+
+  var rows = [];
+  usuarios.forEach(function(u) {
+    u.bets.forEach(function(a) {
+      if (filtroValor) {
+        var val = (a.goleador || a.goleador_mundial || a.valla || a.campeon || a.subcampeon || a.tercerPuesto || a.equipoElegido || '').toLowerCase();
+        if (!val.includes(filtroValor)) return;
+      }
+      var detalle = '', goles = '';
+      if (a.tipo === 'grupo') {
+        var p = PARTIDOS.find(function(x) { return x.id === a.partidoId; });
+        detalle = p ? p.local + ' vs ' + p.visitante : (a.local + ' vs ' + a.visitante);
+        goles = (a.golLocal != null ? a.golLocal : '') + '-' + (a.golVisitante != null ? a.golVisitante : '');
+      } else if (a.tipo === 'campeon') { detalle = a.campeon || a.equipoElegido || ''; }
+      else if (a.tipo === 'subcampeon') { detalle = a.subcampeon || a.equipoElegido || ''; }
+      else if (a.tipo === 'tercer_puesto') { detalle = a.tercerPuesto || a.equipoElegido || ''; }
+      else if (a.tipo === 'goleador') { detalle = a.goleador || a.equipoElegido || ''; goles = a.golesGoleador != null ? a.golesGoleador : ''; }
+      else if (a.tipo === 'goleador_mundial') { detalle = a.goleador_mundial || a.equipoElegido || ''; goles = a.golesGoleadorMundial != null ? a.golesGoleadorMundial : ''; }
+      else if (a.tipo === 'valla') { detalle = a.valla || a.equipoElegido || ''; goles = a.golesValla != null ? a.golesValla : ''; }
+      var pts = calcPuntos(a);
+      rows.push([u.nombre, a.tipo, detalle, goles, pts, a.ts || '']);
+    });
+  });
+
+  var header = ['Participante', 'Tipo', 'Detalle', 'Goles', 'Puntos', 'Fecha registro'];
+  var wb = XLSX.utils.book_new();
+  var ws = XLSX.utils.aoa_to_sheet([header].concat(rows));
+  ws['!cols'] = [24, 14, 28, 10, 8, 18].map(function(w) { return {wch: w}; });
+  XLSX.utils.book_append_sheet(wb, ws, 'Apuestas filtradas');
+  XLSX.writeFile(wb, 'apuestas_filtradas.xlsx');
+  toast('Excel exportado: ' + rows.length + ' fila(s)');
 }
 
 function initConfigFiltros() {
