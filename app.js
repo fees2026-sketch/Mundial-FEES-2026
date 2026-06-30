@@ -1258,6 +1258,8 @@ function renderApuestasPorUsuario() {
   var ft = document.getElementById('filtro-usr-tipo');
   var filtroNombre = (fn ? fn.value : '').toLowerCase();
   var filtroTipo = ft ? ft.value : '';
+  var fv = document.getElementById('filtro-usr-valor');
+  var filtroValor = (fv ? fv.value : '').toLowerCase();
   var toggleGlobal = document.getElementById('toggle-apertura-global');
   var globalAbierto = configGlobal.apuestasAbiertas;
   if (toggleGlobal) {
@@ -1275,6 +1277,13 @@ function renderApuestasPorUsuario() {
   });
   var usuarios = Array.from(porUsuario.values())
     .filter(function(u) { return !filtroNombre || u.nombre.toLowerCase().includes(filtroNombre); })
+    .filter(function(u) {
+      if (!filtroValor) return true;
+      return u.bets.some(function(a) {
+        var val = (a.goleador || a.goleador_mundial || a.valla || a.campeon || a.subcampeon || a.tercerPuesto || a.equipoElegido || '').toLowerCase();
+        return val.includes(filtroValor);
+      });
+    })
     .sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
   if (!usuarios.length) {
     container.innerHTML = '<div class="empty" style="padding:24px;">Sin resultados</div>';

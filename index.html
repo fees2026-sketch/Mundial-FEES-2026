@@ -251,6 +251,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
       <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Te enviaremos un enlace para restablecer tu contrase&ntilde;a.</p>
       <div class="inp-wrap"><label>Correo electr&oacute;nico</label><span class="ico">&#128231;</span><input type="email" id="reset-email" placeholder="tu@correo.com"/></div>
       <button class="btn btn-primary" id="btn-reset" onclick="doReset()">Enviar enlace &rarr;</button>
+    
       <p style="text-align:center;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer;" onclick="authTab('login')">&larr; Volver al login</p>
     </div>
   </div>
@@ -605,12 +606,15 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
         </div>
       </div>
       <div class="card"><div class="card-title">Vista previa</div><div id="pts-preview"></div></div>
+    
+    </div>
     <div id="admin-panel-apuestas-usr" style="display:none;">
       <div class="card" style="margin-bottom:14px;">
         <div class="card-title">Ver apuestas por usuario</div>
         <div style="margin-bottom:12px;"><button id="toggle-apertura-global" onclick="toggleAperturaGlobal()" style="width:100%;padding:10px;border:1px solid #fecaca;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;background:#fef0f0;color:#dc2626;">Apuestas cerradas (abrir todo)</button></div>
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
           <input type="text" id="filtro-usr-nombre" placeholder="Buscar usuario..." oninput="renderApuestasPorUsuario()" autocomplete="off" style="flex:1;min-width:160px;"/>
+          <input type="text" id="filtro-usr-valor" placeholder="Buscar valor (ej: Messi)..." oninput="renderApuestasPorUsuario()" autocomplete="off" style="flex:1;min-width:160px;"/>
           <select id="filtro-usr-tipo" onchange="renderApuestasPorUsuario()" style="width:auto;">
             <option value="">Todos los tipos</option>
             <option value="grupo">Partidos</option>
@@ -623,13 +627,12 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
         <div id="lista-apuestas-por-usuario"></div>
       </div>
     </div>
-    </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<script src="./app.js?v=2"></script>
+<script src="./app.js"></script>
 
 <!-- MODAL: CARGUE MASIVO -->
 <div id="modal-cargue" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;padding:16px;">
