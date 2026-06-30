@@ -1296,9 +1296,9 @@ function renderApuestasPorUsuario() {
       } else if (a.tipo === 'campeon') { titulo = 'Campeon'; detalle = a.campeon || a.equipoElegido || '-'; }
       else if (a.tipo === 'subcampeon') { titulo = 'Subcampeon'; detalle = a.subcampeon || a.equipoElegido || '-'; }
       else if (a.tipo === 'tercer_puesto') { titulo = '3er Puesto'; detalle = a.tercerPuesto || a.equipoElegido || '-'; }
-      else if (a.tipo === 'goleador') { titulo = 'Goleador'; detalle = a.goleador || a.equipoElegido || '-'; }
-      else if (a.tipo === 'goleador_mundial') { titulo = 'Gol.Mundial'; detalle = a.goleador_mundial || a.equipoElegido || '-'; }
-      else if (a.tipo === 'valla') { titulo = 'Valla'; detalle = a.valla || a.equipoElegido || '-'; }
+      else if (a.tipo === 'goleador') { titulo = 'Goleador'; detalle = (a.goleador || a.equipoElegido || '-') + (a.golesGoleador !== undefined ? ' (' + a.golesGoleador + 'g)' : ''); }
+      else if (a.tipo === 'goleador_mundial') { titulo = 'Gol.Mundial'; detalle = (a.goleador_mundial || a.equipoElegido || '-') + (a.golesGoleadorMundial !== undefined ? ' (' + a.golesGoleadorMundial + 'g)' : ''); }
+      else if (a.tipo === 'valla') { titulo = 'Valla'; detalle = (a.valla || a.equipoElegido || '-') + (a.golesValla !== undefined ? ' (' + a.golesValla + 'gc)' : ''); }
       var bg = tieneRes ? (p > 0 ? '#e8f7ed' : '#fef0f0') : 'var(--bg)';
       var border = tieneRes ? (p > 0 ? '#a3d9b8' : '#fecaca') : 'var(--border)';
       return '<div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:10px;padding:8px 10px;min-width:100px;max-width:130px;flex:0 0 auto;">'
