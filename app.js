@@ -1671,13 +1671,26 @@ async function cargarLlaves() {
     var snap = await db.collection('config').doc('llaves').get();
     if (snap.exists) {
       llaves = snap.data() || {};
+      // Aplicar nombres de fases
+      var mapaIds = {qf:['QF_1','QF_2','QF_3','QF_4'], sf:['SF_1','SF_2'], tpf:['TPF_1'], f:['F_1']};
+      if (llaves._nombres) {
+        Object.keys(llaves._nombres).forEach(function(key) {
+          var nombre = llaves._nombres[key];
+          (mapaIds[key] || []).forEach(function(pid) {
+            var p = PARTIDOS.find(function(x) { return x.id === pid; });
+            if (p) p.grupo = nombre;
+          });
+        });
+      }
       // Actualizar el array PARTIDOS con los equipos guardados
       Object.keys(llaves).forEach(function(pid) {
+        if (pid === '_nombres') return;
         var p = PARTIDOS.find(function(x) { return x.id === pid; });
         if (p && llaves[pid].local) {
           p.local = llaves[pid].local;
           p.visitante = llaves[pid].visitante;
-          p.fecha = llaves[pid].fecha || p.fecha;
+          if (llaves[pid].fechaDisplay) p.fecha = llaves[pid].fechaDisplay;
+          else if (llaves[pid].fecha) p.fecha = llaves[pid].fecha;
         }
       });
     }
@@ -1692,21 +1705,45 @@ async function guardarLlave(pid) {
   var local = localEl.value.trim();
   var visit = visitEl.value.trim();
   var fecha = fechaEl ? fechaEl.value.trim() : '';
+  var fechaDisplay = '';
+  if (fecha) {
+    var d = new Date(fecha);
+    fechaDisplay = d.getDate() + ' ' + ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()];
+  }
   if (!local || !visit) { toast('Ingresa ambos equipos'); return; }
 
   // Actualizar en memoria
   var p = PARTIDOS.find(function(x) { return x.id === pid; });
-  if (p) { p.local = local; p.visitante = visit; if (fecha) p.fecha = fecha; }
+  if (p) { p.local = local; p.visitante = visit; if (fechaDisplay) p.fecha = fechaDisplay; }
 
   // Guardar en Firestore
   if (!llaves[pid]) llaves[pid] = {};
   llaves[pid].local = local;
   llaves[pid].visitante = visit;
-  if (fecha) llaves[pid].fecha = fecha;
+  if (fecha) { llaves[pid].fecha = fecha; llaves[pid].fechaDisplay = fechaDisplay; }
   await db.collection('config').doc('llaves').set(llaves, {merge: false});
   toast('Llave guardada: ' + local + ' vs ' + visit);
   renderPartidosElim();
   renderLlavesAdmin();
+}
+
+async function guardarNombreFase(key) {
+  var el = document.getElementById('llave-nombre-' + key);
+  if (!el) return;
+  var nombre = el.value.trim();
+  if (!nombre) return;
+  if (!llaves._nombres) llaves._nombres = {};
+  llaves._nombres[key] = nombre;
+  // Actualizar grupo en PARTIDOS
+  var mapaIds = {qf:['QF_1','QF_2','QF_3','QF_4'], sf:['SF_1','SF_2'], tpf:['TPF_1'], f:['F_1']};
+  (mapaIds[key] || []).forEach(function(pid) {
+    var p = PARTIDOS.find(function(x) { return x.id === pid; });
+    if (p) p.grupo = nombre;
+  });
+  await db.collection('config').doc('llaves').set(llaves, {merge: false});
+  toast('Nombre actualizado: ' + nombre);
+  renderLlavesAdmin();
+  renderPartidosElim();
 }
 
 function renderLlavesAdmin() {
@@ -1714,26 +1751,30 @@ function renderLlavesAdmin() {
   if (!container) return;
 
   var fases = [
-    {label:'Cuartos de Final', ids:['QF_1','QF_2','QF_3','QF_4']},
-    {label:'Semifinales',      ids:['SF_1','SF_2']},
-    {label:'Tercer Puesto',    ids:['TPF_1']},
-    {label:'Final',            ids:['F_1']},
+    {key:'qf', label: llaves._nombres && llaves._nombres.qf  || 'Cuartos de Final', ids:['QF_1','QF_2','QF_3','QF_4']},
+    {key:'sf', label: llaves._nombres && llaves._nombres.sf  || 'Semifinales',       ids:['SF_1','SF_2']},
+    {key:'tpf',label: llaves._nombres && llaves._nombres.tpf || 'Tercer Puesto',     ids:['TPF_1']},
+    {key:'f',  label: llaves._nombres && llaves._nombres.f   || 'Final',             ids:['F_1']},
   ];
 
   container.innerHTML = fases.map(function(fase) {
     return '<div style="margin-bottom:20px;">'
-      + '<div style="font-family:Bebas Neue,sans-serif;font-size:16px;color:var(--verde);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">' + fase.label + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">'
+      + '<input type="text" id="llave-nombre-' + fase.key + '" value="' + fase.label + '" style="font-family:Bebas Neue,sans-serif;font-size:16px;color:var(--verde);border:none;border-bottom:2px solid var(--verde);background:transparent;flex:1;padding:2px 4px;"/>'
+      + '<button data-key="' + fase.key + '" onclick="guardarNombreFase(this.dataset.key)" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--verde);background:var(--verde-light);color:var(--verde);cursor:pointer;">Guardar nombre</button>'
+      + '</div>'
       + fase.ids.map(function(pid) {
         var p = PARTIDOS.find(function(x) { return x.id === pid; });
         var local = p && p.local !== 'PD' ? p.local : '';
         var visit = p && p.visitante !== 'PD' ? p.visitante : '';
-        var fecha = p && p.fecha !== 'TBD' ? p.fecha : '';
+        var fechaISO = (llaves[pid] && llaves[pid].fecha) ? llaves[pid].fecha : '';
+        var fecha = fechaISO;
         return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
           + '<div style="font-size:11px;font-weight:700;color:var(--muted);min-width:40px;">' + pid + '</div>'
           + '<input type="text" id="llave-local-' + pid + '" value="' + local + '" placeholder="Equipo local" list="lista-equipos" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"/>'
           + '<span style="color:var(--muted);font-weight:700;">vs</span>'
           + '<input type="text" id="llave-visit-' + pid + '" value="' + visit + '" placeholder="Equipo visitante" list="lista-equipos" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"/>'
-          + '<input type="text" id="llave-fecha-' + pid + '" value="' + fecha + '" placeholder="Fecha (ej: 5 Jul)" style="width:100px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;"/>'
+          + '<input type="datetime-local" id="llave-fecha-' + pid + '" value="' + fecha + '" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;"/>'
           + '<button data-pid="' + pid + '" onclick="guardarLlave(this.dataset.pid)" class="btn btn-primary btn-sm">Guardar</button>'
           + '</div>';
       }).join('')
