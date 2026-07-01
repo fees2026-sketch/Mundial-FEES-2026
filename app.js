@@ -95,6 +95,14 @@ const PARTIDOS = [
   {id:"R16_14",grupo:"16avos de Final",local:"Argentina",visitante:"Cabo Verde",fecha:"3 Jul",sede:"Miami"},
   {id:"R16_15",grupo:"16avos de Final",local:"Colombia",visitante:"Ghana",fecha:"3 Jul",sede:"Kansas City"},
   {id:"R16_16",grupo:"16avos de Final",local:"Australia",visitante:"Egipto",fecha:"3 Jul",sede:"Dallas"},
+  {id:"QF_1",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_2",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_3",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_4",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"SF_1",grupo:"Semifinales",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"SF_2",grupo:"Semifinales",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"TPF_1",grupo:"Tercer Puesto",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"F_1",grupo:"Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
 ];
 
 const EQUIPOS = [...new Set(PARTIDOS.flatMap(p=>[p.local,p.visitante]))].sort();
@@ -814,10 +822,10 @@ function calcPuntos(a) {
 function renderPartidos(soloFase) {
   const fF = soloFase ? '' : document.getElementById("fil-fecha").value;
   const fG = soloFase ? '' : document.getElementById("fil-grupo-p").value;
-  const containerId = soloFase === '16avos' ? 'partidos-16avos-container' : 'partidos-container';
+  const containerId = soloFase === 'elim' ? 'partidos-16avos-container' : 'partidos-container';
   const lista = PARTIDOS.filter(p => {
-    if (soloFase === '16avos') return p.id.startsWith('R16_');
-    return (!fF||p.fecha===fF)&&(!fG||p.grupo===fG)&&!p.id.startsWith('R16_');
+    if (soloFase === 'elim') return p.id.startsWith('R16_')||p.id.startsWith('QF_')||p.id.startsWith('SF_')||p.id.startsWith('TPF_')||p.id.startsWith('F_');
+    return (!fF||p.fecha===fF)&&(!fG||p.grupo===fG)&&!p.id.startsWith('R16_')&&!p.id.startsWith('QF_')&&!p.id.startsWith('SF_')&&!p.id.startsWith('TPF_')&&!p.id.startsWith('F_');
   }).sort((a,b)=>(FECHA_ORDER[a.fecha]||0)-(FECHA_ORDER[b.fecha]||0)||(PARTIDOS.indexOf(a)-PARTIDOS.indexOf(b)));
   const fechas = [...new Set(lista.map(p=>p.fecha))].sort((a,b)=>(FECHA_ORDER[a]||0)-(FECHA_ORDER[b]||0));
   document.getElementById(containerId).innerHTML = fechas.map(f => {
@@ -826,7 +834,7 @@ function renderPartidos(soloFase) {
       <div class="fecha-header"><div class="fecha-badge">📅 ${f}</div><div class="fecha-line"></div><div style="font-size:12px;color:var(--muted);white-space:nowrap;">${ps.length} partido${ps.length!==1?"s":""}</div></div>
       <div class="partidos-grid">${ps.map(p => {
         const res = resultados[p.id];
-        const tipoPartido = p.id.startsWith('R16_') ? 'elim' : 'grupo';
+        const tipoPartido = (p.id.startsWith('R16_')||p.id.startsWith('QF_')||p.id.startsWith('SF_')||p.id.startsWith('TPF_')||p.id.startsWith('F_')) ? 'elim' : 'grupo';
         const abierto = estaAbierto(p.id, tipoPartido);
         const tr = tiempoRestante(p.id, tipoPartido);
         const miApuesta = apuestas.find(a => a.uid === currentUser.uid && a.partidoId === p.id);
@@ -867,7 +875,9 @@ function renderPartidos(soloFase) {
   }).join("");
 }
 
-function renderPartidos16avos() { renderPartidos('16avos'); }
+function renderPartidos16avos() { renderPartidos('elim'); }
+
+function renderPartidosElim() { renderPartidos('elim'); }
 
 function preselectPartido(pid) {
   abrirApuestaPartido(pid);
@@ -1080,6 +1090,7 @@ async function borrarResultado(pid) {
 async function cargarResultados() {
   const snap = await db.collection("resultados").get();
   snap.forEach(doc => { resultados[doc.id] = doc.data(); });
+  await cargarLlaves();
   await cargarConfigPartidos();
   await cargarTextos();
   await cargarCriterios();
@@ -1336,7 +1347,7 @@ function adminSubTab(tab) {
     if(el) el.style.cssText = base+(tab===t?"var(--verde);color:var(--verde);":"transparent;color:var(--muted);");
   });
   if(tab==="puntos")  renderCriterios();
-  if(tab==="config")  { renderConfigPartidos(); initConfigFiltros(); loadCierreGlobalUI(); }
+  if(tab==="config")  { renderConfigPartidos(); initConfigFiltros(); loadCierreGlobalUI(); renderLlavesAdmin(); }
   if(tab==="textos")  renderTextos();
   if(tab==="usuarios")renderUsuarios();
   if(tab==="apuestas-usr") { const fn = document.getElementById('filtro-usr-nombre'); if(fn) fn.value=''; renderApuestasPorUsuario(); }
@@ -1647,6 +1658,87 @@ function exportarApuestasFiltradasXLSX() {
   XLSX.utils.book_append_sheet(wb, ws, 'Apuestas filtradas');
   XLSX.writeFile(wb, 'apuestas_filtradas.xlsx');
   toast('Excel exportado: ' + rows.length + ' fila(s)');
+}
+
+
+// ============================================================
+// GESTIÓN DE LLAVES ELIMINATORIAS (ADMIN)
+// ============================================================
+var llaves = {}; // guardado en Firestore config/llaves
+
+async function cargarLlaves() {
+  try {
+    var snap = await db.collection('config').doc('llaves').get();
+    if (snap.exists) {
+      llaves = snap.data() || {};
+      // Actualizar el array PARTIDOS con los equipos guardados
+      Object.keys(llaves).forEach(function(pid) {
+        var p = PARTIDOS.find(function(x) { return x.id === pid; });
+        if (p && llaves[pid].local) {
+          p.local = llaves[pid].local;
+          p.visitante = llaves[pid].visitante;
+          p.fecha = llaves[pid].fecha || p.fecha;
+        }
+      });
+    }
+  } catch(e) { console.error('Error cargando llaves:', e); }
+}
+
+async function guardarLlave(pid) {
+  var localEl = document.getElementById('llave-local-' + pid);
+  var visitEl = document.getElementById('llave-visit-' + pid);
+  var fechaEl = document.getElementById('llave-fecha-' + pid);
+  if (!localEl || !visitEl) return;
+  var local = localEl.value.trim();
+  var visit = visitEl.value.trim();
+  var fecha = fechaEl ? fechaEl.value.trim() : '';
+  if (!local || !visit) { toast('Ingresa ambos equipos'); return; }
+
+  // Actualizar en memoria
+  var p = PARTIDOS.find(function(x) { return x.id === pid; });
+  if (p) { p.local = local; p.visitante = visit; if (fecha) p.fecha = fecha; }
+
+  // Guardar en Firestore
+  if (!llaves[pid]) llaves[pid] = {};
+  llaves[pid].local = local;
+  llaves[pid].visitante = visit;
+  if (fecha) llaves[pid].fecha = fecha;
+  await db.collection('config').doc('llaves').set(llaves, {merge: false});
+  toast('Llave guardada: ' + local + ' vs ' + visit);
+  renderPartidosElim();
+  renderLlavesAdmin();
+}
+
+function renderLlavesAdmin() {
+  var container = document.getElementById('admin-llaves-container');
+  if (!container) return;
+
+  var fases = [
+    {label:'Cuartos de Final', ids:['QF_1','QF_2','QF_3','QF_4']},
+    {label:'Semifinales',      ids:['SF_1','SF_2']},
+    {label:'Tercer Puesto',    ids:['TPF_1']},
+    {label:'Final',            ids:['F_1']},
+  ];
+
+  container.innerHTML = fases.map(function(fase) {
+    return '<div style="margin-bottom:20px;">'
+      + '<div style="font-family:Bebas Neue,sans-serif;font-size:16px;color:var(--verde);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">' + fase.label + '</div>'
+      + fase.ids.map(function(pid) {
+        var p = PARTIDOS.find(function(x) { return x.id === pid; });
+        var local = p && p.local !== 'PD' ? p.local : '';
+        var visit = p && p.visitante !== 'PD' ? p.visitante : '';
+        var fecha = p && p.fecha !== 'TBD' ? p.fecha : '';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
+          + '<div style="font-size:11px;font-weight:700;color:var(--muted);min-width:40px;">' + pid + '</div>'
+          + '<input type="text" id="llave-local-' + pid + '" value="' + local + '" placeholder="Equipo local" list="lista-equipos" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"/>'
+          + '<span style="color:var(--muted);font-weight:700;">vs</span>'
+          + '<input type="text" id="llave-visit-' + pid + '" value="' + visit + '" placeholder="Equipo visitante" list="lista-equipos" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"/>'
+          + '<input type="text" id="llave-fecha-' + pid + '" value="' + fecha + '" placeholder="Fecha (ej: 5 Jul)" style="width:100px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;"/>'
+          + '<button data-pid="' + pid + '" onclick="guardarLlave(this.dataset.pid)" class="btn btn-primary btn-sm">Guardar</button>'
+          + '</div>';
+      }).join('')
+      + '</div>';
+  }).join('');
 }
 
 function initConfigFiltros() {
@@ -2686,7 +2778,8 @@ function getFase(partidoId) {
   if (partidoId.startsWith('R16')) return 'octavos';
   if (partidoId.startsWith('QF'))  return 'cuartos';
   if (partidoId.startsWith('SF'))  return 'semis';
-  if (partidoId.startsWith('F'))   return 'final';
+  if (partidoId.startsWith('TPF')) return 'semis';
+  if (partidoId.startsWith('F_'))  return 'final';
   return 'otros';
 }
 
@@ -2960,7 +3053,7 @@ async function guardarApuestaModal(pid) {
   if (!p) return;
 
   if (currentUser.eliminado) { toast('⛔ Fuiste eliminado en la fase de grupos'); return; }
-  const tipoApuesta = pid.startsWith('R16_') ? 'elim' : 'grupo';
+  const tipoApuesta = (pid.startsWith('R16_')||pid.startsWith('QF_')||pid.startsWith('SF_')||pid.startsWith('TPF_')||pid.startsWith('F_')) ? 'elim' : 'grupo';
   if (!estaAbierto(pid, tipoApuesta)) { toast('⛔ Apuestas cerradas'); return; }
 
   const cfg = configPartidos[pid] || {};

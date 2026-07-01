@@ -285,7 +285,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
 <nav id="main-nav" style="display:none;">
   <button class="active" data-nav="nueva" onclick="showTab('nueva',this)"><span id="nav-nueva-txt">&#128221; Nueva apuesta</span></button>
   <button data-nav="partidos" onclick="showTab('partidos',this)">&#9917; Partidos</button>
-  <button data-nav="dieciseisavos" onclick="showTab('dieciseisavos',this)">&#128256; 16avos</button>
+  <button data-nav="dieciseisavos" onclick="showTab('dieciseisavos',this)">&#9917; Eliminatorias</button>
   <button data-nav="apuestas" onclick="showTab('apuestas',this)">&#128203; Apuestas</button>
   <button id="nav-resultados" data-nav="resultados" onclick="showTab('resultados',this)">&#127919; Resultados</button>
   <button data-nav="tabla" onclick="showTab('tabla',this)">&#127885; Tabla</button>
@@ -401,7 +401,7 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
   <!-- RESULTADOS -->
   <div class="panel" id="tab-dieciseisavos">
     <div class="card" style="margin-bottom:14px;">
-      <div class="card-title">&#128256; 16avos de Final</div>
+      <div class="card-title">Fase Eliminatoria</div>
     </div>
     <div id="partidos-16avos-container"></div>
   </div>
@@ -571,6 +571,11 @@ input:focus,select:focus{border-color:var(--verde);background:white;}
             <span style="font-size:13px;font-weight:500;">Habilitar apuestas fase final (Campe&oacute;n, Subcampe&oacute;n, 3er puesto)</span>
           </label>
         </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Llaves eliminatorias</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Define los cruces de cuartos, semis y final.</div>
+        <div id="admin-llaves-container"></div>
       </div>
     </div>
     <div id="admin-panel-textos" style="display:none;">
