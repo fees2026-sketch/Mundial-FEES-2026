@@ -1457,7 +1457,30 @@ function abrirModalEditarApuestas(uid, nombre) {
 
   var userBets = apuestas.filter(function(a) { return a.uid === uid; });
   
-  var rows = PARTIDOS.map(function(p) {
+  // Sección especiales
+  var especiales = [
+    {tipo:'campeon',        label:'Campeón',              campo:'campeon'},
+    {tipo:'subcampeon',     label:'Subcampeón',            campo:'subcampeon'},
+    {tipo:'tercer_puesto',  label:'Tercer puesto',         campo:'tercerPuesto'},
+    {tipo:'goleador',       label:'Goleador fase grupos',  campo:'goleador',        golesCampo:'golesGoleador'},
+    {tipo:'goleador_mundial',label:'Goleador Mundial',     campo:'goleador_mundial', golesCampo:'golesGoleadorMundial'},
+    {tipo:'valla',          label:'Valla menos vencida',   campo:'valla',            golesCampo:'golesValla'},
+  ];
+
+  var rowsEspeciales = '<div style="font-size:11px;font-weight:700;color:var(--verde);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.04em;">Apuestas especiales</div>';
+  rowsEspeciales += especiales.map(function(e) {
+    var apuesta = userBets.find(function(a) { return a.tipo === e.tipo; });
+    var val = apuesta ? (apuesta[e.campo] || '') : '';
+    var goles = apuesta && e.golesCampo ? (apuesta[e.golesCampo] != null ? apuesta[e.golesCampo] : '') : '';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">'
+      + '<div style="flex:1;min-width:120px;font-size:12px;font-weight:600;">' + e.label + '</div>'
+      + '<input type="text" id="ea-val-' + e.tipo + '" value="' + val + '" placeholder="Equipo o jugador" list="lista-equipos" style="flex:1;min-width:120px;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:6px;"/>'
+      + (e.golesCampo ? '<input type="number" id="ea-goles-' + e.tipo + '" min="0" max="30" value="' + goles + '" placeholder="goles" style="width:52px;text-align:center;padding:4px;font-size:13px;border:1px solid var(--border);border-radius:6px;"/>' : '')
+      + '</div>';
+  }).join('');
+
+  var rows = rowsEspeciales + '<div style="font-size:11px;font-weight:700;color:var(--verde);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.04em;">Partidos</div>';
+  rows += PARTIDOS.map(function(p) {
     var apuesta = userBets.find(function(a) { return a.partidoId === p.id; });
     var gl = apuesta ? apuesta.golLocal : '';
     var gv = apuesta ? apuesta.golVisitante : '';
@@ -1497,6 +1520,37 @@ async function guardarApuestasAdmin(uid, nombre) {
   var batch = db.batch();
   var count = 0;
 
+  // Guardar especiales
+  var especiales2 = [
+    {tipo:'campeon',         campo:'campeon'},
+    {tipo:'subcampeon',      campo:'subcampeon'},
+    {tipo:'tercer_puesto',   campo:'tercerPuesto'},
+    {tipo:'goleador',        campo:'goleador',         golesCampo:'golesGoleador'},
+    {tipo:'goleador_mundial',campo:'goleador_mundial',  golesCampo:'golesGoleadorMundial'},
+    {tipo:'valla',           campo:'valla',             golesCampo:'golesValla'},
+  ];
+  for (var j = 0; j < especiales2.length; j++) {
+    var e = especiales2[j];
+    var valEl = document.getElementById('ea-val-' + e.tipo);
+    if (!valEl || valEl.value.trim() === '') continue;
+    var val = valEl.value.trim();
+    var existing2 = userBets.find(function(a) { return a.tipo === e.tipo; });
+    var data = { equipoElegido: val, ts: new Date().toLocaleString('es-CO') };
+    data[e.campo] = val;
+    if (e.golesCampo) {
+      var golesEl = document.getElementById('ea-goles-' + e.tipo);
+      if (golesEl && golesEl.value !== '') data[e.golesCampo] = parseInt(golesEl.value) || 0;
+    }
+    if (existing2) {
+      batch.update(db.collection('apuestas').doc(existing2.id), data);
+    } else {
+      var ref2 = db.collection('apuestas').doc();
+      batch.set(ref2, Object.assign({ numId: Date.now() + j, uid: uid, nombre: nombre, tipo: e.tipo, creado: firebase.firestore.FieldValue.serverTimestamp() }, data));
+    }
+    count++;
+  }
+
+  // Guardar partidos
   for (var i = 0; i < PARTIDOS.length; i++) {
     var p = PARTIDOS[i];
     var glEl = document.getElementById('ea-gl-' + p.id);
