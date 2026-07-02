@@ -535,7 +535,6 @@ function showTab(id, btn) {
   btn.classList.add("active");
   if(id==="apuestas")  renderApuestas();
   if(id==="tabla") {
-    // Para usuarios normales, cargar todas las apuestas desde Firestore
     if (currentUser.rol !== 'admin') {
       const ahora = Date.now();
       if (ahora - tablaApuestasCacheTs > 60000) {
@@ -544,10 +543,12 @@ function showTab(id, btn) {
           tablaApuestasCacheTs = Date.now();
           renderTabla();
         }).catch(() => renderTabla());
-        return;
+      } else {
+        renderTabla();
       }
+    } else {
+      renderTabla();
     }
-    renderTabla();
   }
   if(id==="resultados")renderResultados();
   if(id==="partidos")  renderPartidos();
