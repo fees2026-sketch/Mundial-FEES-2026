@@ -1116,6 +1116,7 @@ async function cargarResultados() {
 
 // RENDER TABLA
 async function renderTabla() {
+  const filtroFase = document.getElementById('sel-filtro-fase')?.value || 'total';
   document.getElementById("st-total").textContent    = apuestas.length;
   const personas = [...new Set(apuestas.map(a=>a.nombre))];
   document.getElementById("st-partic").textContent   = personas.length;
@@ -1177,9 +1178,21 @@ async function renderTabla() {
     .filter(u => u.rol !== 'admin')
     .map(u => {
       const fuenteAp = currentUser.rol === 'admin' ? apuestas : (tablaApuestasCache.length > 0 ? tablaApuestasCache : apuestas);
-      const bets = filtroPartido
+      let bets = filtroPartido
         ? fuenteAp.filter(a => a.uid === u.uid && a.partidoId === filtroPartido)
         : fuenteAp.filter(a => a.uid === u.uid);
+      // Filtrar por fase
+      if (!filtroPartido && filtroFase !== 'total') {
+        const fasesMap = {
+          grupos:   a => a.partidoId && ['A','B','C','D','E','F','G','H','I','J','K','L'].includes(a.partidoId[0]),
+          octavos:  a => a.partidoId && a.partidoId.startsWith('R16_'),
+          cuartos:  a => a.partidoId && a.partidoId.startsWith('QF_'),
+          semis:    a => a.partidoId && (a.partidoId.startsWith('SF_') || a.partidoId.startsWith('TPF_')),
+          final:    a => a.partidoId && a.partidoId.startsWith('F_'),
+          especiales: a => ['campeon','subcampeon','tercer_puesto','goleador','goleador_mundial','valla'].includes(a.tipo),
+        };
+        if (fasesMap[filtroFase]) bets = bets.filter(fasesMap[filtroFase]);
+      }
       const fases = filtroPartido ? {} : calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
