@@ -121,6 +121,8 @@ let apuestas    = [];
 let resultados  = {};
 let nextId      = 1;
 let unsubApuestas = null;
+let tablaApuestasCache = [];
+let tablaApuestasCacheTs = 0;
 
 const CRITERIOS_DEFAULT = [
   {id:"resultado_exacto",nombre:"Resultado exacto",  desc:"Marcador final correcto",icon:"🎯",pts:3,fijo:true},
