@@ -534,7 +534,21 @@ function showTab(id, btn) {
   document.getElementById("tab-"+id).classList.add("active");
   btn.classList.add("active");
   if(id==="apuestas")  renderApuestas();
-  if(id==="tabla")     renderTabla();
+  if(id==="tabla") {
+    // Para usuarios normales, cargar todas las apuestas desde Firestore
+    if (currentUser.rol !== 'admin') {
+      const ahora = Date.now();
+      if (ahora - tablaApuestasCacheTs > 60000) {
+        db.collection('apuestas').get().then(snap => {
+          tablaApuestasCache = snap.docs.map(d => ({id: d.id, ...d.data()}));
+          tablaApuestasCacheTs = Date.now();
+          renderTabla();
+        }).catch(() => renderTabla());
+        return;
+      }
+    }
+    renderTabla();
+  }
   if(id==="resultados")renderResultados();
   if(id==="partidos")  renderPartidos();
   if(id==="dieciseisavos") renderPartidos16avos();
@@ -1161,9 +1175,10 @@ async function renderTabla() {
   const ranking = todosUsuarios
     .filter(u => u.rol !== 'admin')
     .map(u => {
+      const fuenteAp = currentUser.rol === 'admin' ? apuestas : (tablaApuestasCache.length > 0 ? tablaApuestasCache : apuestas);
       const bets = filtroPartido
-        ? apuestas.filter(a => a.uid === u.uid && a.partidoId === filtroPartido)
-        : apuestas.filter(a => a.uid === u.uid);
+        ? fuenteAp.filter(a => a.uid === u.uid && a.partidoId === filtroPartido)
+        : fuenteAp.filter(a => a.uid === u.uid);
       const fases = filtroPartido ? {} : calcPuntosPorFase(bets);
       const total = bets.reduce((s,a) => s+calcPuntos(a), 0);
       const nombre = u.nombre || u.email;
