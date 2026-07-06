@@ -95,12 +95,24 @@ const PARTIDOS = [
   {id:"R16_14",grupo:"16avos de Final",local:"Argentina",visitante:"Cabo Verde",fecha:"3 Jul",sede:"Miami"},
   {id:"R16_15",grupo:"16avos de Final",local:"Colombia",visitante:"Ghana",fecha:"3 Jul",sede:"Kansas City"},
   {id:"R16_16",grupo:"16avos de Final",local:"Australia",visitante:"Egipto",fecha:"3 Jul",sede:"Dallas"},
-  {id:"QF_1",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
-  {id:"QF_2",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
-  {id:"QF_3",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
-  {id:"QF_4",grupo:"Cuartos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  // 8vos de final (16 -> 8)
+  {id:"QF_1",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_2",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_3",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_4",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_5",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_6",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_7",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"QF_8",grupo:"8vos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  // 4tos de final (8 -> 4)
+  {id:"CF_1",grupo:"4tos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"CF_2",grupo:"4tos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"CF_3",grupo:"4tos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  {id:"CF_4",grupo:"4tos de Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  // Semifinales
   {id:"SF_1",grupo:"Semifinales",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
   {id:"SF_2",grupo:"Semifinales",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
+  // Tercer puesto y Final
   {id:"TPF_1",grupo:"Tercer Puesto",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
   {id:"F_1",grupo:"Final",local:"PD",visitante:"PD",fecha:"TBD",sede:"TBD"},
 ];
@@ -839,7 +851,7 @@ function renderPartidos(soloFase) {
   const fG = soloFase ? '' : document.getElementById("fil-grupo-p").value;
   const containerId = soloFase === 'elim' ? 'partidos-16avos-container' : 'partidos-container';
   const lista = PARTIDOS.filter(p => {
-    if (soloFase === 'elim') return p.id.startsWith('R16_')||p.id.startsWith('QF_')||p.id.startsWith('SF_')||p.id.startsWith('TPF_')||p.id.startsWith('F_');
+    if (soloFase === 'elim') return p.id.startsWith('R16_')||p.id.startsWith('QF_')||p.id.startsWith('CF_')||p.id.startsWith('SF_')||p.id.startsWith('TPF_')||p.id.startsWith('F_');
     return (!fF||p.fecha===fF)&&(!fG||p.grupo===fG)&&!p.id.startsWith('R16_')&&!p.id.startsWith('QF_')&&!p.id.startsWith('SF_')&&!p.id.startsWith('TPF_')&&!p.id.startsWith('F_');
   }).sort((a,b)=>(FECHA_ORDER[a.fecha]||0)-(FECHA_ORDER[b.fecha]||0)||(PARTIDOS.indexOf(a)-PARTIDOS.indexOf(b)));
   const fechas = [...new Set(lista.map(p=>p.fecha))].sort((a,b)=>(FECHA_ORDER[a]||0)-(FECHA_ORDER[b]||0));
@@ -849,7 +861,7 @@ function renderPartidos(soloFase) {
       <div class="fecha-header"><div class="fecha-badge">📅 ${f}</div><div class="fecha-line"></div><div style="font-size:12px;color:var(--muted);white-space:nowrap;">${ps.length} partido${ps.length!==1?"s":""}</div></div>
       <div class="partidos-grid">${ps.map(p => {
         const res = resultados[p.id];
-        const tipoPartido = (p.id.startsWith('R16_')||p.id.startsWith('QF_')||p.id.startsWith('SF_')||p.id.startsWith('TPF_')||p.id.startsWith('F_')) ? 'elim' : 'grupo';
+        const tipoPartido = (p.id.startsWith('R16_')||p.id.startsWith('QF_')||p.id.startsWith('CF_')||p.id.startsWith('SF_')||p.id.startsWith('TPF_')||p.id.startsWith('F_')) ? 'elim' : 'grupo';
         const abierto = estaAbierto(p.id, tipoPartido);
         const tr = tiempoRestante(p.id, tipoPartido);
         const miApuesta = apuestas.find(a => a.uid === currentUser.uid && a.partidoId === p.id);
@@ -1036,10 +1048,7 @@ function renderResultados() {
           ${isAdmin ? `<button class="btn btn-outline btn-sm" onclick="borrarResultado('${p.id}')" style="margin-left:auto;">✕</button>` : ''}</div>
           ${cfg.tarjetas ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">🟨 Tarjetas: ${r.tarjetasLocal||0}–${r.tarjetasVisitante||0}</div>` : ''}
           ${cfg.esquinas ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">🔄 Esquinas: ${r.esquinasLocal||0}–${r.esquinasVisitante||0}</div>` : ''}
-          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-            <div style="font-size:12px;color:var(--muted);">${n} apuesta(s)</div>
-            <button class="btn btn-sm" onclick="verAciertoPartido('${p.id}')" style="font-size:11px;padding:3px 10px;background:#eff6ff;color:#1e40af;border:1px solid #dbeafe;border-radius:6px;cursor:pointer;">🏅 Ver aciertos</button>
-          </div></div>`;
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
         return `<div class="res-card">
           <div class="res-match">${p.grupo} · ${p.local} vs ${p.visitante}</div>
           ${isAdmin ? `<div class="res-form">
@@ -1065,80 +1074,6 @@ function renderResultados() {
           <div style="font-size:12px;color:var(--muted);margin-top:6px;">${n} apuesta(s)</div></div>`;
       }).join("")}</div>`;
   }).join("");
-}
-
-
-// ============================================================
-// MODAL VER ACIERTOS POR PARTIDO
-// ============================================================
-function cerrarModalAciertos() {
-  var m = document.getElementById('modal-aciertos');
-  if (m) m.style.display = 'none';
-}
-
-function verAciertoPartido(pid) {
-  var p = PARTIDOS.find(function(x) { return x.id === pid; });
-  var res = resultados[pid];
-  if (!p || !res) { toast('Sin resultado para este partido'); return; }
-
-  var fuenteAp = apuestas;
-  var bets = fuenteAp.filter(function(a) { return a.partidoId === pid; });
-
-  var exactos  = bets.filter(function(a) { return calcPuntos(a) === 3; })
-                     .sort(function(a,b) { return a.nombre.localeCompare(b.nombre); });
-  var ganador  = bets.filter(function(a) { return calcPuntos(a) === 1; })
-                     .sort(function(a,b) { return a.nombre.localeCompare(b.nombre); });
-  var fallaron = bets.filter(function(a) { return calcPuntos(a) === 0; })
-                     .sort(function(a,b) { return a.nombre.localeCompare(b.nombre); });
-
-  var modal = document.getElementById('modal-aciertos');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'modal-aciertos';
-    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3000;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;';
-    document.body.appendChild(modal);
-  }
-
-  function filaJugador(a) {
-    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">'
-      + '<div style="width:28px;height:28px;border-radius:50%;background:var(--verde);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">'
-      + a.nombre.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase()
-      + '</div>'
-      + '<div style="flex:1;font-size:13px;">' + a.nombre + '</div>'
-      + '<div style="font-size:13px;font-weight:700;color:var(--verde);">' + a.golLocal + '-' + a.golVisitante + '</div>'
-      + '</div>';
-  }
-
-  modal.innerHTML = '<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:480px;margin:20px auto;max-height:90vh;overflow-y:auto;">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'
-    + '<div>'
-    + '<div style="font-family:Bebas Neue,sans-serif;font-size:20px;color:var(--verde);">' + p.local + ' vs ' + p.visitante + '</div>'
-    + '<div style="font-size:13px;color:var(--muted);">Resultado: <strong>' + res.local + ' - ' + res.visitante + '</strong></div>'
-    + '</div>'
-    + '<button onclick="cerrarModalAciertos()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);">✕</button>'
-    + '</div>'
-
-    + '<div style="display:flex;gap:8px;margin-bottom:16px;">'
-    + '<div style="flex:1;text-align:center;background:#d4edd9;border-radius:10px;padding:10px;">'
-    + '<div style="font-size:24px;font-weight:700;color:#1a6b3c;">' + exactos.length + '</div>'
-    + '<div style="font-size:11px;color:#1a6b3c;font-weight:600;">🎯 Exacto (3pts)</div>'
-    + '</div>'
-    + '<div style="flex:1;text-align:center;background:#fdf3dc;border-radius:10px;padding:10px;">'
-    + '<div style="font-size:24px;font-weight:700;color:#c8972b;">' + ganador.length + '</div>'
-    + '<div style="font-size:11px;color:#c8972b;font-weight:600;">✅ Ganador (1pt)</div>'
-    + '</div>'
-    + '<div style="flex:1;text-align:center;background:#fee2e2;border-radius:10px;padding:10px;">'
-    + '<div style="font-size:24px;font-weight:700;color:#c0392b;">' + fallaron.length + '</div>'
-    + '<div style="font-size:11px;color:#c0392b;font-weight:600;">❌ Fallaron (0pts)</div>'
-    + '</div>'
-    + '</div>'
-
-    + (exactos.length ? '<div style="margin-bottom:12px;"><div style="font-size:12px;font-weight:700;color:#1a6b3c;margin-bottom:6px;">🎯 RESULTADO EXACTO</div>' + exactos.map(filaJugador).join('') + '</div>' : '')
-    + (ganador.length ? '<div style="margin-bottom:12px;"><div style="font-size:12px;font-weight:700;color:#c8972b;margin-bottom:6px;">✅ GANADOR CORRECTO</div>' + ganador.map(filaJugador).join('') + '</div>' : '')
-    + (fallaron.length ? '<div><div style="font-size:12px;font-weight:700;color:#c0392b;margin-bottom:6px;">❌ FALLARON</div>' + fallaron.map(filaJugador).join('') + '</div>' : '')
-    + '</div>';
-
-  modal.style.display = 'flex';
 }
 
 async function guardarResultado(pid) {
@@ -1844,7 +1779,8 @@ function renderLlavesAdmin() {
   if (!container) return;
 
   var fases = [
-    {key:'qf', label: llaves._nombres && llaves._nombres.qf  || 'Cuartos de Final', ids:['QF_1','QF_2','QF_3','QF_4']},
+    {key:'qf', label: llaves._nombres && llaves._nombres.qf  || 'Cuartos de Final', ids:['QF_1','QF_2','QF_3','QF_4','QF_5','QF_6','QF_7','QF_8']},
+    {key:'cf', label: llaves._nombres && llaves._nombres.cf || '4tos de Final', ids:['CF_1','CF_2','CF_3','CF_4']},
     {key:'sf', label: llaves._nombres && llaves._nombres.sf  || 'Semifinales',       ids:['SF_1','SF_2']},
     {key:'tpf',label: llaves._nombres && llaves._nombres.tpf || 'Tercer Puesto',     ids:['TPF_1']},
     {key:'f',  label: llaves._nombres && llaves._nombres.f   || 'Final',             ids:['F_1']},
@@ -2910,7 +2846,8 @@ function getFase(partidoId) {
   const letra = partidoId[0];
   if (grupos.includes(letra)) return 'grupos';
   if (partidoId.startsWith('R16')) return 'octavos';
-  if (partidoId.startsWith('QF'))  return 'cuartos';
+  if (partidoId.startsWith('QF'))  return 'octavos';
+  if (partidoId.startsWith('CF'))  return 'cuartos';
   if (partidoId.startsWith('SF'))  return 'semis';
   if (partidoId.startsWith('TPF')) return 'semis';
   if (partidoId.startsWith('F_'))  return 'final';
