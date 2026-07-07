@@ -1253,8 +1253,8 @@ async function renderTabla() {
     const faseBadges = Object.entries(r.fases)
       .filter(([,v])=>v>0)
       .map(([k,v])=>{
-        const labels = {grupos:'Grupos',octavos:'Octavos',cuartos:'Cuartos',semis:'Semis',final:'Final',campeon:'Campeón'};
-        const icons  = {grupos:'⚽',octavos:'🔁',cuartos:'🏅',semis:'🌟',final:'🏆',campeon:'👑'};
+        const labels = {grupos:'Grupos',dieciseis:'16avos',octavos:'8vos',cuartos:'4tos',semis:'Semis',final:'Final',campeon:'Campeón'};
+        const icons  = {grupos:'⚽',dieciseis:'🔁',octavos:'🔄',cuartos:'🏅',semis:'🌟',final:'🏆',campeon:'👑'};
         return '<span style="font-size:10px;background:var(--verde-light);color:var(--verde);padding:2px 7px;border-radius:8px;margin-right:3px;">' + (icons[k]||'') + ' ' + (labels[k]||k) + ': <strong>' + v + '</strong></span>';
       }).join('');
 
@@ -2845,7 +2845,7 @@ function getFase(partidoId) {
   const grupos = ['A','B','C','D','E','F','G','H','I','J','K','L'];
   const letra = partidoId[0];
   if (grupos.includes(letra)) return 'grupos';
-  if (partidoId.startsWith('R16')) return 'octavos';
+  if (partidoId.startsWith('R16')) return 'dieciseis';
   if (partidoId.startsWith('QF'))  return 'octavos';
   if (partidoId.startsWith('CF'))  return 'cuartos';
   if (partidoId.startsWith('SF'))  return 'semis';
@@ -2855,7 +2855,7 @@ function getFase(partidoId) {
 }
 
 function calcPuntosPorFase(apuestasPersona) {
-  const fases = { grupos: 0, octavos: 0, cuartos: 0, semis: 0, final: 0, campeon: 0 };
+  const fases = { grupos: 0, dieciseis: 0, octavos: 0, cuartos: 0, semis: 0, final: 0, campeon: 0 };
   apuestasPersona.forEach(a => {
     const pts = calcPuntos(a);
     if (pts > 0) {
